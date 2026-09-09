@@ -103,6 +103,10 @@ success probability, the distribution of failure ages, and percentile bands for 
 chart. Every run is seeded, so the same inputs always give the same answer — a probability
 that jitters between reloads invites re-rolling until you like the number.
 
+Everything runs on the browser's main thread, so a 5,000-path run pauses the page for
+several seconds — a few seconds on a warm desktop browser, longer on the first run while
+the JIT warms up. Moving it to a Web Worker is the obvious next improvement.
+
 Two solvers bisect on that probability:
 
 - `maxSustainableSpend()` — the most you can spend at a chosen confidence level

@@ -599,7 +599,13 @@ export default function Planner({
               >
                 Earliest retirement age
               </button>
-              {busy && <span className="text-sm text-slate-500">{busy}…</span>}
+              {busy ? (
+                <span className="text-sm text-slate-600">{busy}… the page will pause</span>
+              ) : (
+                <span className="text-xs text-slate-500">
+                  Runs in this browser — takes a few seconds and pauses the page while it works.
+                </span>
+              )}
             </div>
 
             {(spendSolve || ageSolve) && (

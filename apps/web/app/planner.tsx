@@ -275,7 +275,8 @@ export default function Planner({
       <header className="mb-4">
         <h1 className="text-2xl font-semibold">Retirement model</h1>
         <p className="text-sm text-slate-600">
-          Phase 3 — tax, super, Age Pension, health costs and longevity. Rules: {r.ruleset}
+          Australian tax, super, Age Pension, health and longevity — with simulation. Rules:{' '}
+          {r.ruleset}
         </p>
       </header>
 

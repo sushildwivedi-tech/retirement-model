@@ -48,7 +48,13 @@ type Field = {
   /** Defaults to 'you'. */
   role?: Role;
 };
-type Group = { title: string; fields: Field[]; partnerOnly?: boolean; agedCareOnly?: boolean };
+type Group = {
+  title: string;
+  fields: Field[];
+  partnerOnly?: boolean;
+  agedCareOnly?: boolean;
+  downsizeOnly?: boolean;
+};
 
 const GROUPS: Group[] = [
   {
@@ -146,6 +152,7 @@ const GROUPS: Group[] = [
   },
   {
     title: 'Downsize',
+    downsizeOnly: true,
     fields: [
       { key: 'downsizeAge', label: 'Downsize at age', kind: 'age' },
       { key: 'downsizeNewHomeValue', label: 'Replacement home', kind: 'money' },
@@ -356,13 +363,52 @@ export default function Planner({
         change: { glidePath: true },
       },
     ];
-    if (form.downsize && form.downsizeAge < 55) {
+    const downsizerAge = ruleset.super.downsizerContribution.minimumAge.value;
+    const downsizerCap = ruleset.super.downsizerContribution.capPerPerson.value;
+    if (!form.downsize && form.primaryResidence > 0) {
+      // A plausible move rather than a prescription: a home two thirds the value.
+      const replacement = Math.round((form.primaryResidence * 2) / 3 / 10_000) * 10_000;
+      // Two timings, because they trade off against each other and the model can settle
+      // it: downsizing at retirement frees the equity when the bridge needs it, but
+      // before 55 it forfeits the downsizer contribution entirely.
+      if (form.retirementAge < downsizerAge) {
+        candidates.push({
+          label: `Downsize at ${form.retirementAge}, when you stop work`,
+          detail: `Move to a ${money(replacement)} home. Frees the equity exactly when the bridge needs it${
+            form.retirementAge < downsizerAge
+              ? `, but forfeits the downsizer contribution — that needs age ${downsizerAge}`
+              : ''
+          }`,
+          change: {
+            downsize: true,
+            downsizeAge: form.retirementAge,
+            downsizeNewHomeValue: replacement,
+          },
+        });
+      }
       candidates.push({
-        label: 'Downsize at 55 instead',
-        detail: `Unlocks the downsizer contribution — up to ${money(
-          ruleset.super.downsizerContribution.capPerPerson.value,
-        )} into super, which you forfeit downsizing at ${form.downsizeAge}`,
-        change: { downsizeAge: 55 },
+        label: `Downsize at ${downsizerAge}`,
+        detail: `Move to a ${money(replacement)} home. Old enough for the downsizer contribution — up to ${money(downsizerCap)} into super`,
+        change: { downsize: true, downsizeAge: downsizerAge, downsizeNewHomeValue: replacement },
+      });
+    }
+    if (form.downsize && form.downsizeAge > form.retirementAge) {
+      // Equity released after the money has already run out is no help at all. Moving the
+      // move earlier trades the downsizer contribution for liquidity when it is needed.
+      candidates.push({
+        label: `Downsize at ${form.retirementAge} instead of ${form.downsizeAge}`,
+        detail:
+          form.retirementAge < downsizerAge
+            ? `Frees the equity when you stop work rather than ${form.downsizeAge - form.retirementAge} years later, though before ${downsizerAge} it forfeits the downsizer contribution`
+            : 'Frees the equity when you stop work rather than later',
+        change: { downsizeAge: form.retirementAge },
+      });
+    }
+    if (form.downsize && form.downsizeAge < downsizerAge) {
+      candidates.push({
+        label: `Downsize at ${downsizerAge} instead`,
+        detail: `Unlocks the downsizer contribution — up to ${money(downsizerCap)} into super, which you forfeit downsizing at ${form.downsizeAge}`,
+        change: { downsizeAge: downsizerAge },
       });
     }
     const compared = compareScenarios(
@@ -581,15 +627,32 @@ export default function Planner({
             <input
               type="checkbox"
               checked={form.hasPartner}
-              onChange={(e) => setForm((f) => ({ ...f, hasPartner: e.target.checked }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, hasPartner: e.target.checked }));
+                clearResults();
+              }}
             />
             <span className="font-medium">Model a partner</span>
           </label>
           <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <input
               type="checkbox"
+              checked={form.downsize}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, downsize: e.target.checked }));
+                clearResults();
+              }}
+            />
+            <span className="font-medium">Downsize the home</span>
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <input
+              type="checkbox"
               checked={form.agedCareEnabled}
-              onChange={(e) => setForm((f) => ({ ...f, agedCareEnabled: e.target.checked }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, agedCareEnabled: e.target.checked }));
+                clearResults();
+              }}
             />
             <span className="font-medium">Aged care stress test</span>
           </label>
@@ -651,7 +714,7 @@ export default function Planner({
               checked={form.glidePath}
               onChange={(e) => {
                 setForm((f) => ({ ...f, glidePath: e.target.checked }));
-                setMc(null);
+                clearResults();
               }}
             />
             <span className="font-medium">Glide to defensive with age</span>
@@ -697,7 +760,10 @@ export default function Planner({
             )}
           </fieldset>
           {GROUPS.filter(
-            (g) => (!g.partnerOnly || form.hasPartner) && (!g.agedCareOnly || form.agedCareEnabled),
+            (g) =>
+              (!g.partnerOnly || form.hasPartner) &&
+              (!g.agedCareOnly || form.agedCareEnabled) &&
+              (!g.downsizeOnly || form.downsize),
           ).map((g) => (
             <fieldset key={g.title} className="rounded-lg border border-slate-200 bg-white p-3">
               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">

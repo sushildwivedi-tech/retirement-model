@@ -122,8 +122,10 @@ export const defaults: FormInputs = {
   partnerSex: 'unspecified',
   firstDeathAge: 0,
   spendingStepDownOnFirstDeath: 0.7,
-  downsize: true,
-  downsizeAge: 47,
+  // Off by default. Downsizing the family home is a major life decision, not something
+  // a planning tool should quietly assume on your behalf.
+  downsize: false,
+  downsizeAge: 60,
   downsizeNewHomeValue: 600_000,
   sellingCostRate: 0.025,
 };

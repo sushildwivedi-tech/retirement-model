@@ -29,9 +29,16 @@ in the sidebar with their source. Changing one means updating the ruleset, not t
 ## What would move the needle
 
 A levers table re-runs the whole projection with one change at a time — retire later,
-spend less, save more, salary sacrifice, part-time work, downsize at 55 to unlock the
-downsizer contribution, hold a cash buffer, glide to defensive — and reports what each is
-worth in years, ranked by outcome. Apply takes any of them into your inputs.
+spend less, save more, salary sacrifice, part-time work, downsize (and *when* to downsize),
+hold a cash buffer, glide to defensive — and reports what each is worth in years, ranked by
+outcome. Apply takes any of them into your inputs.
+
+Downsizing is opt-in, not assumed: it is a major life decision and the tool should not
+quietly bake one into your plan. When it is off, the levers offer it at two timings,
+because they trade off and the model can settle it — at retirement the equity arrives when
+the bridge needs it, but before 55 it forfeits the downsizer contribution. On the shipped
+example that difference is stark: downsizing at 47 is worth 27 years, while waiting until
+55 is worth nothing, because the money runs out at 53 and never reaches it.
 
 It ranks by outcome, not by what the change costs you: working five more years and
 spending $10,000 less are not equivalent sacrifices, and only you can weigh them.

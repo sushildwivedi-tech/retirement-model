@@ -218,3 +218,10 @@ suffixes.
 ---
 
 General information only. Not personal financial advice.
+
+## Deploying
+
+`netlify.toml` builds from the workspace root so the engine package and the `rules/` and
+`data/` folders are all present — the app reads those at build time. The page is
+statically prerendered, so the deployed site is static and every calculation happens in
+the visitor's browser.

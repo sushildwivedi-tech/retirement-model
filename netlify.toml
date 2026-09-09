@@ -1,0 +1,11 @@
+# Monorepo build: the workspace root is the base, so the engine package and the
+# rules/ and data/ folders the app reads at build time are all present.
+[build]
+  command = "npm run build"
+  publish = "apps/web/.next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "22"

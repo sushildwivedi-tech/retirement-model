@@ -2,6 +2,7 @@ import { preservationAge, assertUsable } from './rules';
 import { personalIncomeTax } from './tax';
 import { agePension, minimumDrawdownPercent } from './agePension';
 import { indexRuleset } from './indexation';
+import { advanceMortgage, annualRepaymentFor } from './mortgage';
 import { DEFAULT_SPENDING_PHASES, outOfPocketAtAge, spendingMultiplier } from './health';
 import { lifeExpectancy, lifespanPercentile, survivalCurve } from './longevity';
 import type {
@@ -35,6 +36,8 @@ interface State {
   transferBalanceUsed: Record<string, number>;
   workBonusBalance: Record<string, number>;
   dead: Set<string>;
+  mortgageBalance: number;
+  offset: number;
   primaryResidence: number;
 }
 
@@ -115,6 +118,26 @@ export function project(
   /** Non-clinical care contributions paid so far, against the lifetime cap. */
   let nonClinicalPaid = 0;
   let agedCareYearsPaid = 0;
+  const mortgage = household.mortgage;
+  // The repayment is a nominal dollar amount fixed by the loan contract, so unlike every
+  // other spending line it is NOT indexed to CPI - which is exactly why a mortgage gets
+  // easier to carry over time.
+  const mortgageRepayment =
+    mortgage === undefined
+      ? 0
+      : (mortgage.annualRepayment ??
+        annualRepaymentFor(mortgage.balance, mortgage.interestRate, mortgage.remainingYears));
+  let mortgagePaidOffAge: number | null = null;
+  let totalMortgageInterest = 0;
+  let totalOffsetInterestSaved = 0;
+  if (mortgage && mortgage.offsetBalance > mortgage.balance) {
+    warnings.push(
+      `The offset balance (${Math.round(mortgage.offsetBalance).toLocaleString()}) is larger than ` +
+        `the loan (${Math.round(mortgage.balance).toLocaleString()}). An offset only saves interest ` +
+        'up to the amount owing, so the excess earns nothing at all - it would do better in ' +
+        'cash, investments or super.',
+    );
+  }
   const strategy: DrawdownStrategy = assumptions.drawdownStrategy ?? 'outsideSuperFirst';
   const bufferYears = assumptions.cashBufferYears ?? 3;
   const glidePath: GlidePathStep[] = [...(assumptions.glidePath ?? [])].sort(
@@ -195,6 +218,8 @@ export function project(
     transferBalanceUsed: Object.fromEntries(people.map((p) => [p.id, 0])),
     workBonusBalance: Object.fromEntries(people.map((p) => [p.id, 0])),
     dead: new Set<string>(),
+    mortgageBalance: household.mortgage?.balance ?? 0,
+    offset: household.mortgage?.offsetBalance ?? 0,
     primaryResidence: household.primaryResidence,
   };
 
@@ -423,6 +448,41 @@ export function project(
       }
     }
 
+    // --- Home loan ------------------------------------------------------------
+    // Repayments are a spending line that ends when the loan does (build plan 2.2),
+    // rather than being netted against assets. They run whether or not anyone has
+    // retired, so unlike the other lines this one is not gated on `inRetirement`.
+    let mortgageSpending = 0;
+    const mortgageYear = mortgage
+      ? advanceMortgage(state.mortgageBalance, state.offset, mortgage, mortgageRepayment)
+      : null;
+    if (mortgageYear && state.mortgageBalance > 0) {
+      mortgageSpending = mortgageYear.repayment;
+      totalMortgageInterest += mortgageYear.interest;
+      totalOffsetInterestSaved += mortgageYear.interestSavedByOffset;
+      state.offset -= mortgageYear.offsetUsedToClear;
+      state.mortgageBalance = mortgageYear.closingBalance;
+      if (mortgageYear.clearedThisYear) {
+        mortgagePaidOffAge ??= ages[people[0].id];
+        eventLog.push(
+          mortgageYear.offsetUsedToClear > 0
+            ? `Home loan cleared, ${Math.round(mortgageYear.offsetUsedToClear).toLocaleString()} of it paid out from the offset. The repayment stops from here.`
+            : 'Home loan cleared. The repayment stops from here.',
+        );
+        // With no loan left to offset, the account is just a transaction account. Leaving
+        // the balance there would have it earn nothing for the rest of the plan, which is
+        // a modelling artefact rather than anything a household would actually do.
+        if (state.offset > 0) {
+          state.cash += state.offset;
+          eventLog.push(
+            `${Math.round(state.offset).toLocaleString()} moved out of the offset — with no loan ` +
+              'to offset, it earns nothing sitting there.',
+          );
+          state.offset = 0;
+        }
+      }
+    }
+
     // One-off expenses.
     let oneOffSpending = 0;
     for (const ev of events) {
@@ -444,7 +504,12 @@ export function project(
     }
 
     const totalSpending =
-      baselineSpending + healthSpending + phiSpending + agedCareSpending + oneOffSpending;
+      baselineSpending +
+      healthSpending +
+      phiSpending +
+      agedCareSpending +
+      oneOffSpending +
+      mortgageSpending;
 
     const savings = inRetirement ? 0 : household.annualSavings * cpiIndex;
     if (savings > 0) {
@@ -457,7 +522,9 @@ export function project(
       (a, p) => a + state.superAccumulation[p.id] + state.superPension[p.id],
       0,
     );
-    const financialAssets = state.cash + state.investments + superTotalNow;
+    // An offset balance is still the household's money, so it is assessed like any other
+    // financial asset - both deemed for the income test and counted for the assets test.
+    const financialAssets = state.cash + state.offset + state.investments + superTotalNow;
     const ap = agePension(
       {
         people: alive.map((p) => ({
@@ -527,6 +594,7 @@ export function project(
     // CGT. Iterate to a fixed point - it converges in two or three passes.
     const opening = {
       cash: state.cash,
+      offset: state.offset,
       investments: state.investments,
       costBase: state.investmentsCostBase,
       superAccumulation: { ...state.superAccumulation },
@@ -534,6 +602,7 @@ export function project(
     };
     for (let pass = 0; pass < 5; pass++) {
       state.cash = opening.cash;
+      state.offset = opening.offset;
       state.investments = opening.investments;
       state.investmentsCostBase = opening.costBase;
       state.superAccumulation = { ...opening.superAccumulation };
@@ -552,6 +621,16 @@ export function project(
         const takeCash = (want: number) => {
           const amt = Math.min(want, state.cash);
           state.cash -= amt;
+          drawdown.cash += amt;
+          return want - amt;
+        };
+        // Spending the offset is the most expensive liquid choice while a loan exists: it
+        // gives up a return equal to the mortgage rate, and an untaxed one at that. So it
+        // is drawn after cash and investments rather than before them.
+        const takeOffset = (want: number) => {
+          if (want <= 0 || state.offset <= 0) return want;
+          const amt = Math.min(want, state.offset);
+          state.offset -= amt;
           drawdown.cash += amt;
           return want - amt;
         };
@@ -589,6 +668,7 @@ export function project(
             need = takeCash(need);
             need = takeSuper(need);
             need = takeInvestments(need);
+            need = takeOffset(need);
             break;
 
           case 'proportional': {
@@ -600,16 +680,18 @@ export function project(
                 (a, p) => a + (ages[p.id] >= preservation[p.id] ? state.superAccumulation[p.id] : 0),
                 0,
               );
-            const pool = state.cash + state.investments + accessibleSuper;
+            const pool = state.cash + state.offset + state.investments + accessibleSuper;
             if (pool <= 0) break;
             const want = Math.min(need, pool);
             const fromCash = takeCash(want * (state.cash / pool));
+            const fromOffset = takeOffset(want * (state.offset / pool));
             const fromInv = takeInvestments(want * (state.investments / pool));
             const fromSuper = takeSuper(want * (accessibleSuper / pool));
             // Anything a bucket could not cover falls through to the others.
-            need -= want - (fromCash + fromInv + fromSuper);
+            need -= want - (fromCash + fromOffset + fromInv + fromSuper);
             need = takeCash(need);
             need = takeInvestments(need);
+            need = takeOffset(need);
             need = takeSuper(need);
             break;
           }
@@ -619,6 +701,7 @@ export function project(
             // is there for the next bad year. This is the sequence-of-returns defence.
             need = takeCash(need);
             need = takeInvestments(need);
+            need = takeOffset(need);
             need = takeSuper(need);
             const targetBuffer = totalSpending * bufferYears;
             let refill = Math.max(0, targetBuffer - state.cash);
@@ -644,6 +727,7 @@ export function project(
           default:
             need = takeCash(need);
             need = takeInvestments(need);
+            need = takeOffset(need);
             need = takeSuper(need);
             break;
         }
@@ -733,6 +817,7 @@ export function project(
     const superPen = alive.reduce((a, p) => a + state.superPension[p.id], 0);
     const accessible =
       state.cash +
+      state.offset +
       state.investments +
       superPen +
       alive.reduce(
@@ -766,6 +851,7 @@ export function project(
         privateHealthInsurance: round(phiSpending),
         agedCare: round(agedCareSpending),
         oneOff: round(oneOffSpending),
+        mortgage: round(mortgageSpending),
         total: round(totalSpending),
       },
       agePension: round(ap.entitlement),
@@ -803,12 +889,28 @@ export function project(
         cash: round(state.cash),
         investments: round(state.investments),
         investmentsCostBase: round(state.investmentsCostBase),
+        offset: round(state.offset),
         superAccumulation: round(superAccum),
         superPension: round(superPen),
         superByPerson,
         primaryResidence: round(state.primaryResidence),
-        total: round(state.cash + state.investments + superAccum + superPen + state.primaryResidence),
+        // Net of what is still owed on the home.
+        total: round(
+          state.cash +
+            state.offset +
+            state.investments +
+            superAccum +
+            superPen +
+            state.primaryResidence -
+            state.mortgageBalance,
+        ),
         accessible: round(accessible),
+      },
+      mortgage: {
+        interest: round(mortgageYear?.interest ?? 0),
+        interestSavedByOffset: round(mortgageYear?.interestSavedByOffset ?? 0),
+        principalRepaid: round(mortgageYear?.principalRepaid ?? 0),
+        balance: round(state.mortgageBalance),
       },
       shortfall: round(shortfall),
     });
@@ -870,6 +972,9 @@ export function project(
     ruleset: `${ruleset.id} (${ruleset.financialYear}, retrieved ${ruleset.retrievedAt})`,
     rows,
     longevity,
+    mortgagePaidOffAge,
+    totalMortgageInterest: round(totalMortgageInterest),
+    totalOffsetInterestSaved: round(totalOffsetInterestSaved),
     moneyRunsOutAge: firstShort ? firstShort.ages[people[0].id] : null,
     moneyRunsOutYear: firstShort ? firstShort.calendarYear : null,
     bridge,

@@ -15,20 +15,37 @@ export interface ScenarioOutcome {
   fixesIt: boolean;
   /** What is left at the end of the plan, in today's dollars, including the home. */
   estateReal: number;
+  /**
+   * The same, excluding the primary residence.
+   *
+   * This is the figure that discriminates between strategies. Total net worth is
+   * dominated by the house, which barely moves between variants, so two very different
+   * plans can show an identical estate while one of them ran out of spendable money
+   * decades earlier.
+   */
+  liquidEstateReal: number;
   /** Unfunded spending inside the bridge to super access, nominal. */
   bridgeShortfall: number;
+  /** Age the home loan is cleared, or null. */
+  mortgagePaidOffAge: number | null;
+  /** Total nominal interest paid over the life of the loan. */
+  mortgageInterestPaid: number;
 }
 
 function summarise(label: string, r: ProjectionResult, baselineAge: number | null): ScenarioOutcome {
   const last = r.rows.at(-1);
+  const real = last ? toRealRow(last) : null;
   return {
     label,
     runsOutAge: r.moneyRunsOutAge,
     deltaYears:
       r.moneyRunsOutAge === null || baselineAge === null ? null : r.moneyRunsOutAge - baselineAge,
     fixesIt: r.moneyRunsOutAge === null && baselineAge !== null,
-    estateReal: last ? toRealRow(last).balances.total : 0,
+    estateReal: real ? real.balances.total : 0,
+    liquidEstateReal: real ? real.balances.total - real.balances.primaryResidence : 0,
     bridgeShortfall: r.bridge.reduce((a, b) => a + b.shortfall, 0),
+    mortgagePaidOffAge: r.mortgagePaidOffAge,
+    mortgageInterestPaid: r.totalMortgageInterest,
   };
 }
 

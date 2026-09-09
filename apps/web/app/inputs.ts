@@ -41,6 +41,11 @@ export interface FormInputs {
   drawdownStrategy: DrawdownStrategy;
   cashBufferYears: number;
   glidePath: boolean;
+  hasMortgage: boolean;
+  mortgageBalance: number;
+  mortgageRate: number;
+  mortgageYears: number;
+  offsetBalance: number;
   partTimeIncome: number;
   partTimeYears: number;
   partnerPartTimeIncome: number;
@@ -107,6 +112,11 @@ export const defaults: FormInputs = {
   drawdownStrategy: 'outsideSuperFirst',
   cashBufferYears: 3,
   glidePath: false,
+  hasMortgage: false,
+  mortgageBalance: 150_000,
+  mortgageRate: 0.062,
+  mortgageYears: 10,
+  offsetBalance: 50_000,
   partTimeIncome: 0,
   partTimeYears: 5,
   partnerPartTimeIncome: 0,
@@ -271,6 +281,14 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       primaryResidence: f.primaryResidence,
       annualSavings: f.annualSavings,
       retirementSpending: f.retirementSpending,
+      mortgage: f.hasMortgage
+        ? {
+            balance: f.mortgageBalance,
+            interestRate: f.mortgageRate,
+            remainingYears: f.mortgageYears,
+            offsetBalance: f.offsetBalance,
+          }
+        : undefined,
       spendingStepDownOnFirstDeath: f.spendingStepDownOnFirstDeath,
       people,
     },

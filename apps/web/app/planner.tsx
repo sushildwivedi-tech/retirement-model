@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   compareScenarios,
+  personalIncomeTax,
   earliestRetirementAge,
   maxSustainableSpend,
   monteCarlo,
@@ -56,7 +57,7 @@ type Group = {
    * the fields appearing only once it is Yes - so a choice and the numbers it needs
    * always live together, rather than the switch being somewhere else entirely.
    */
-  toggle?: 'hasPartner' | 'downsize' | 'agedCareEnabled';
+  toggle?: 'hasPartner' | 'downsize' | 'agedCareEnabled' | 'hasMortgage';
   /** Only render this section when that boolean is already on. */
   requires?: 'hasPartner';
   /** One line under the title explaining what the decision means. */
@@ -94,6 +95,17 @@ const GROUPS: Group[] = [
   {
     title: 'Spending in retirement',
     fields: [{ key: 'retirementSpending', label: 'Spending each year', kind: 'money' }],
+  },
+  {
+    title: 'Do you have a mortgage?',
+    toggle: 'hasMortgage',
+    help: 'Repayments are treated as spending that stops when the loan does. Money in an offset account cuts the interest charged, pound for pound, and is still yours.',
+    fields: [
+      { key: 'mortgageBalance', label: 'Amount owing', kind: 'money' },
+      { key: 'mortgageRate', label: 'Interest rate', kind: 'percent' },
+      { key: 'mortgageYears', label: 'Years remaining', kind: 'age' },
+      { key: 'offsetBalance', label: 'Offset account balance', kind: 'money' },
+    ],
   },
   {
     title: 'Will you downsize the home?',
@@ -316,6 +328,61 @@ export default function Planner({
       }
     }, 20);
   };
+
+  // --- Offset or invest? ------------------------------------------------------------
+  // A question the model can actually settle, rather than answer with a rule of thumb:
+  // run the household both ways and compare. The arithmetic alongside is the intuition.
+  const offsetAdvice = useMemo(() => {
+    if (!form.hasMortgage || form.mortgageBalance <= 0) return null;
+    const phi = { phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value };
+    const ds = { lifeTables, healthCostCurve };
+
+    // Marginal rate on the next dollar of investment income, including Medicare.
+    const step = 100;
+    const base = personalIncomeTax(form.salary, ruleset).payable;
+    const stepped = personalIncomeTax(form.salary + step, ruleset).payable;
+    const marginal = Math.max(0, (stepped - base) / step);
+
+    // The offset saves the loan rate, untaxed. Investing earns the expected return, of
+    // which the income share is taxed each year and the growth share only on realisation.
+    const yieldShare = form.investmentIncomeYield;
+    const growthShare = Math.max(0, form.returnInvestments - yieldShare);
+    const cgt = ruleset.capitalGains.discountRate.value;
+    const afterTaxInvest =
+      yieldShare * (1 - marginal) + growthShare * (1 - marginal * (1 - cgt));
+
+    const moveToInvestments = compareScenarios(
+      toScenario(form, phi),
+      [
+        {
+          label: 'Move the offset into investments',
+          scenario: toScenario(
+            { ...form, offsetBalance: 0, investments: form.investments + form.offsetBalance },
+            phi,
+          ),
+        },
+        {
+          label: 'Move investments into the offset',
+          scenario: toScenario(
+            { ...form, offsetBalance: form.offsetBalance + form.investments, investments: 0 },
+            phi,
+          ),
+        },
+      ],
+      ruleset,
+      ds,
+    );
+    return {
+      marginal,
+      afterTaxInvest,
+      loanRate: form.mortgageRate,
+      baseline: moveToInvestments.baseline,
+      toInvestments: moveToInvestments.outcomes[0],
+      toOffset: moveToInvestments.outcomes[1],
+      hasOffset: form.offsetBalance > 0,
+      hasInvestments: form.investments > 0,
+    };
+  }, [form, ruleset, lifeTables, healthCostCurve]);
 
   // --- Planning levers -------------------------------------------------------------
   // Each is a concrete change to the plan, evaluated deterministically. One projection
@@ -931,6 +998,120 @@ export default function Planner({
             </div>
           )}
 
+          {offsetAdvice && (
+            <div className="rounded-lg border border-indigo-200 bg-white p-4">
+              <div className="mb-1 flex items-baseline justify-between">
+                <h2 className="font-semibold">Offset, or invest?</h2>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                  calculated
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-slate-600">
+                A dollar in the offset earns you the loan rate — and does so untaxed, because
+                interest you never incurred cannot be taxed. A dollar invested earns more on
+                paper, but you pay tax on the income each year and CGT on the growth when you
+                sell. Here is the comparison both ways.
+              </p>
+
+              <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded border border-sky-200 bg-sky-50 p-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-600">
+                    Offset returns
+                  </div>
+                  <div className="text-2xl font-semibold tabular-nums">
+                    {(offsetAdvice.loanRate * 100).toFixed(2)}%
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    tax-free and certain — it is simply interest you do not pay
+                  </div>
+                </div>
+                <div className="rounded border border-amber-200 bg-amber-50 p-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-600">
+                    Investing returns, after tax
+                  </div>
+                  <div className="text-2xl font-semibold tabular-nums">
+                    ~{(offsetAdvice.afterTaxInvest * 100).toFixed(2)}%
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    from {(form.returnInvestments * 100).toFixed(2)}% expected, at your{' '}
+                    {(offsetAdvice.marginal * 100).toFixed(0)}% marginal rate — and not certain
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-medium">Choice</th>
+                      <th className="px-2 py-1 text-right font-medium">Interest paid</th>
+                      <th className="px-2 py-1 text-right font-medium">Loan cleared</th>
+                      <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Leave things as they are', o: offsetAdvice.baseline, show: true },
+                      {
+                        label: `Move the ${money(form.offsetBalance)} offset into investments`,
+                        o: offsetAdvice.toInvestments,
+                        show: offsetAdvice.hasOffset,
+                      },
+                      {
+                        label: `Move ${money(form.investments)} of investments into the offset`,
+                        o: offsetAdvice.toOffset,
+                        show: offsetAdvice.hasInvestments,
+                      },
+                    ]
+                      .filter((row) => row.show)
+                      .map((row) => (
+                        <tr key={row.label} className="border-t border-slate-100">
+                          <td className="px-2 py-2 text-slate-800">{row.label}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {money(row.o.mortgageInterestPaid)}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {row.o.mortgagePaidOffAge === null
+                              ? 'not cleared'
+                              : `age ${row.o.mortgagePaidOffAge}`}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {row.o.runsOutAge === null ? 'never runs out' : `age ${row.o.runsOutAge}`}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              {r.mortgagePaidOffAge !== null &&
+                r.moneyRunsOutAge !== null &&
+                r.moneyRunsOutAge < r.mortgagePaidOffAge && (
+                  <p className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-800">
+                    Your money runs out at {r.moneyRunsOutAge}, before the loan is cleared at{' '}
+                    {r.mortgagePaidOffAge}. The projection keeps charging the repayment because
+                    the lender would — but in reality you would be unable to make it. Carrying
+                    this loan into retirement is the problem to solve first; where the offset
+                    money sits is a second-order question next to it.
+                  </p>
+                )}
+              <p className="mt-2 text-xs text-slate-600">
+                Interest paid and the year the loan clears are what actually separate these
+                choices. The age your money runs out is a blunter measure — a mortgage this
+                size moves it either way, so it can look identical across all three.
+              </p>
+
+              <p className="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-700">
+                <span className="font-medium">The catch the numbers do not show:</span> the
+                offset return is certain and the investment return is not. Two rates a
+                fraction apart are not equivalent when one of them can be negative for a
+                decade. The offset also does nothing once the loan is gone
+                {r.mortgagePaidOffAge !== null ? ` — here, at ${r.mortgagePaidOffAge}` : ''}, at
+                which point the money is better off invested. This is general information,
+                not financial advice.
+              </p>
+            </div>
+          )}
+
           <div className="rounded-lg border border-indigo-200 bg-white p-4">
             <div className="mb-1 flex items-baseline justify-between">
               <h2 className="font-semibold">What would move the needle</h2>
@@ -952,7 +1133,9 @@ export default function Planner({
                     <th className="px-2 py-1 text-left font-medium">Change</th>
                     <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
                     <th className="px-2 py-1 text-right font-medium">Difference</th>
-                    <th className="px-2 py-1 text-right font-medium">Left at {form.planToAge}</th>
+                    <th className="px-2 py-1 text-right font-medium">
+                      Savings left at {form.planToAge}
+                    </th>
                     <th className="px-2 py-1" />
                   </tr>
                 </thead>
@@ -989,7 +1172,7 @@ export default function Planner({
                                   : `${o.deltaYears} yrs`}
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums text-slate-600">
-                          {money(o.estateReal)}
+                          {money(o.liquidEstateReal)}
                         </td>
                         <td className="px-2 py-2 text-right">
                           <button

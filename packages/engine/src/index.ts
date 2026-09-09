@@ -26,3 +26,5 @@ export type { HistoricalSequence, StressTestResult } from './stressTests';
 export { makeRng, makeNormal, cholesky, correlatedNormals, percentile } from './random';
 export { compareScenarios } from './levers';
 export type { ScenarioOutcome } from './levers';
+export { annualRepaymentFor, advanceMortgage } from './mortgage';
+export type { MortgageYear } from './mortgage';

@@ -9,6 +9,36 @@ test, Monte Carlo simulation over correlated returns and sampled lifespans, four
 strategies, and solvers for both the maximum sustainable spend and the earliest
 retirement age. The app lists what is missing on every screen.
 
+## Mortgage and offset
+
+A home loan is opt-in, with its balance, rate, remaining term and offset balance. Per the
+build plan (section 2.2), repayments are modelled as **a spending line that ends when the
+loan does**, not netted against assets — a household with a mortgage really does have to
+find the repayment each year, and the year it stops is a real step down in spending. The
+repayment is a fixed nominal amount, so unlike every other spending line it is not indexed:
+that is exactly why a mortgage gets easier to carry over time.
+
+The offset reduces interest pound for pound, is still counted as an asset (including in the
+Age Pension tests), and earns nothing of its own — its return is the interest it avoids,
+untaxed. Two consequences the model gets right and that are easy to get wrong:
+
+- Any offset balance **above** the loan earns nothing at all. The engine warns when it is
+  over-funded.
+- Once the loan clears, the balance moves to cash. Leaving it in a zero-interest account
+  for the rest of the plan would be a modelling artefact, not what anyone would do.
+
+### Offset, or invest?
+
+A panel answers this by running the household **both ways through the full model** — tax,
+Age Pension and all — rather than with a rule of thumb. It shows the arithmetic alongside
+(the loan rate, tax-free and certain, against the expected return after tax at your
+marginal rate) but the verdict comes from the projection.
+
+The useful measures are **interest paid** and **when the loan clears**; the age your money
+runs out is blunt, because a mortgage of any size moves it either way. On the shipped
+example a $50,000 offset saves about $33,000 of interest and clears the loan five years
+earlier.
+
 ## Where each number comes from
 
 The UI colour-codes provenance, because a figure you typed and a figure taken from the

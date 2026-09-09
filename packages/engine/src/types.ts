@@ -206,6 +206,39 @@ export interface Person {
   partTimeIncome?: { amount: number; fromAge: number; toAge: number };
 }
 
+/**
+ * A home loan with an optional offset account.
+ *
+ * The build plan (section 2.2) is explicit about the treatment: repayments are modelled
+ * as a SPENDING LINE that ends when the loan does, rather than netted against assets.
+ * That keeps the cash-flow honest - a household with a mortgage really does have to find
+ * the repayment each year, and the year it ends is a real step down in spending.
+ */
+export interface Mortgage {
+  /** Amount owing at the plan start. */
+  balance: number;
+  /** Annual nominal interest rate, e.g. 0.062. */
+  interestRate: number;
+  /** Years left on the loan, used to derive the repayment when one is not given. */
+  remainingYears: number;
+  /**
+   * Annual repayment. Derived from balance, rate and term when omitted - which is what a
+   * lender does: the minimum repayment is set on the loan itself and does NOT fall
+   * because you hold an offset balance. The offset's benefit shows up as an earlier
+   * payoff, not a smaller repayment.
+   */
+  annualRepayment?: number;
+  /**
+   * Offset account balance. Reduces the interest charged, pound for pound, but is still
+   * your money: it counts as an asset here and in the Age Pension tests.
+   *
+   * It deliberately earns no interest of its own - that is the whole point of an offset.
+   * The return it earns is the loan interest it avoids, which is also untaxed, making it
+   * worth more than the same balance sitting in a taxable savings account.
+   */
+  offsetBalance: number;
+}
+
 export interface Household {
   people: Person[];
   homeOwner: boolean;
@@ -236,6 +269,8 @@ export interface Household {
   annualSavings: number;
   /** Household spending target from the first retirement onward, today's dollars. */
   retirementSpending: number;
+  /** Home loan, if any. Repayments run whether or not anyone has retired. */
+  mortgage?: Mortgage;
 }
 
 export interface HealthAssumptions {
@@ -456,6 +491,8 @@ export interface YearRow {
     agedCare: number;
     /** One-off expenses falling in this year. */
     oneOff: number;
+    /** Mortgage repayment for the year - a spending line, per build plan section 2.2. */
+    mortgage: number;
     total: number;
   };
   agePension: number;
@@ -492,6 +529,8 @@ export interface YearRow {
     investments: number;
     /** Cost base of `investments`, carried for CGT. */
     investmentsCostBase: number;
+    /** Offset account balance - an asset, even though it earns no interest. */
+    offset: number;
     superAccumulation: number;
     superPension: number;
     /** Super by person, both phases combined. */
@@ -500,6 +539,15 @@ export interface YearRow {
     total: number;
     /** Balances the household can actually spend this year. */
     accessible: number;
+  };
+  mortgage: {
+    /** Interest charged this year, after the offset is applied. */
+    interest: number;
+    /** Interest the offset balance avoided. */
+    interestSavedByOffset: number;
+    principalRepaid: number;
+    /** Amount owing at the end of the year. */
+    balance: number;
   };
   /** Spending that could not be funded from accessible assets. */
   shortfall: number;
@@ -555,6 +603,12 @@ export interface ProjectionResult {
   moneyRunsOutYear: number | null;
   bridge: BridgePeriod[];
   longevity: LongevityView[];
+  /** Age of the first person when the home loan is cleared, or null if it never is. */
+  mortgagePaidOffAge: number | null;
+  /** Total nominal interest paid over the life of the loan. */
+  totalMortgageInterest: number;
+  /** Total interest avoided by the offset balance over the life of the loan. */
+  totalOffsetInterestSaved: number;
   /** Things the caller must surface in the UI: assumed inputs, ineligibility, cap breaches. */
   warnings: string[];
   /** Parts of the spec deliberately not modelled yet. The UI must show these. */

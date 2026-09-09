@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   compareScenarios,
+  earliestRetirementAgeDeterministic,
   personalIncomeTax,
   earliestRetirementAge,
   maxSustainableSpend,
@@ -199,10 +201,13 @@ export default function Planner({
   ruleset,
   lifeTables,
   healthCostCurve,
+  view,
 }: {
   ruleset: Ruleset;
   lifeTables: LifeTables;
   healthCostCurve: HealthCostCurve;
+  /** 'answer' leads with when you can retire; 'detail' shows the workings. */
+  view: 'answer' | 'detail';
 }) {
   // Starts from the illustrative example. Anything the visitor types is theirs, kept in
   // their own browser - the first render must match the server's, so the saved values are
@@ -608,6 +613,18 @@ export default function Planner({
   const ds = { lifeTables, healthCostCurve };
   const conf = confidence / 100;
 
+  // The headline. Deterministic on purpose: it is a binary search over a handful of
+  // projections, so it updates as you type, where the Monte Carlo answer takes seconds.
+  const canRetireAt = useMemo(
+    () =>
+      earliestRetirementAgeDeterministic(scenario, ruleset, {
+        lifeTables,
+        healthCostCurve,
+      }),
+    [scenario, ruleset, lifeTables, healthCostCurve],
+  );
+
+
   const download = () => {
     const blob = new Blob([toCsv(r, real)], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -889,520 +906,603 @@ export default function Planner({
         </aside>
 
         <section className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card
-              label="Own money runs out at"
-              value={r.moneyRunsOutAge === null ? 'Never' : `Age ${r.moneyRunsOutAge}`}
-              tone={r.moneyRunsOutAge === null ? 'good' : 'bad'}
-              note={
-                r.moneyRunsOutYear
-                  ? `in ${r.moneyRunsOutYear} — the Age Pension continues`
-                  : `lasts to age ${form.planToAge}`
-              }
-            />
-            <Card
-              label="Then living on"
-              value={
-                !depleted
-                  ? '—'
-                  : depleted.agePension > 0
-                    ? `${money(depleted.agePension)}/yr`
-                    : 'Nothing'
-              }
-              tone={depleted ? 'bad' : 'neutral'}
-              note={
-                !depleted
-                  ? 'your own assets cover the whole plan'
-                  : depleted.agePension > 0
-                    ? `Age Pension only — ${Math.round((depleted.agePension / depleted.spending.total) * 100)}% of your ${money(depleted.spending.total)} target`
-                    : // Running out before Age Pension age is a different, worse problem: there
-                      // is no safety net yet, so saying "Age Pension only" would imply a floor
-                      // that does not exist until ${ruleset.agePension.eligibilityAge.value}.
-                      `no income at all — the Age Pension does not start until ${ruleset.agePension.eligibilityAge.value}`
-              }
-            />
-            <Card
-              label="Bridge to super access"
-              value={bridge ? `${bridge.years} years` : 'None'}
-              tone={bridge && bridge.shortfall > 0 ? 'bad' : 'neutral'}
-              note={
-                bridge
-                  ? `age ${bridge.startAge} → ${bridge.endAge}, unfunded ${money(bridge.shortfall)}` +
-                    (partnerBridge
-                      ? `; partner ${partnerBridge.startAge} → ${partnerBridge.endAge}`
-                      : '')
-                  : 'super is accessible at retirement'
-              }
-            />
-            <Card
-              label={`Accessible at ${form.retirementAge}`}
-              value={money(at(form.retirementAge)?.balances.accessible ?? 0)}
-              tone="neutral"
-              note={real ? "today's dollars" : 'future dollars'}
-            />
-          </div>
+          <nav className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-sm">
+            <Link
+              href="/"
+              className={`rounded px-3 py-1.5 ${
+                view === 'answer' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              When can you retire?
+            </Link>
+            <Link
+              href="/detail"
+              className={`rounded px-3 py-1.5 ${
+                view === 'detail' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              The detail
+            </Link>
+          </nav>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold">Balances over time</h2>
-              <div className="flex items-center gap-2 text-sm">
-                <button
-                  onClick={() => setReal(!real)}
-                  className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"
-                >
-                  {real ? "Today's dollars" : 'Future dollars'}
-                </button>
-                <button onClick={download} className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">
-                  Export CSV
-                </button>
+          {view === 'answer' && (
+            <div
+              className={`rounded-lg border p-6 ${
+                canRetireAt.age === null
+                  ? 'border-red-300 bg-red-50'
+                  : canRetireAt.plannedAgeWorks
+                    ? 'border-emerald-300 bg-emerald-50'
+                    : 'border-amber-300 bg-amber-50'
+              }`}
+            >
+              <div className="text-xs uppercase tracking-wide text-slate-600">
+                On these numbers, spending {money(form.retirementSpending)} a year
               </div>
-            </div>
-            <BalanceChart rows={rows} personId={PRIMARY_ID} />
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="mb-1 flex items-baseline justify-between">
-              <h2 className="font-semibold">What you spend, and on what</h2>
-              <span className="text-xs text-slate-500">
-                {real ? "today's dollars" : 'future dollars'}
-              </span>
-            </div>
-            <p className="mb-3 text-xs text-slate-600">
-              Baseline spending steps down through the go-go, slow-go and no-go phases while
-              health costs climb with age. The green line is the Age Pension.
-            </p>
-            <HealthChart rows={rows} personId={PRIMARY_ID} />
-          </div>
-
-          {r.longevity.length > 0 && (
-            <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
-              <h2 className="mb-2 font-semibold">Longevity (Australian Life Tables 2020–22)</h2>
-              <ul className="space-y-1 text-slate-700">
-                {r.longevity.map((l) => (
-                  <li key={l.personId}>
+              <div className="mt-1 text-5xl font-semibold tracking-tight">
+                {canRetireAt.age === null
+                  ? 'No age works'
+                  : `You could retire at ${canRetireAt.age}`}
+              </div>
+              <p className="mt-2 max-w-2xl text-sm text-slate-700">
+                {canRetireAt.age === null ? (
+                  <>
+                    Even working to {form.planToAge} does not fund this level of spending. Lower
+                    the spend, or check the figures on the left.
+                  </>
+                ) : canRetireAt.plannedAgeWorks ? (
+                  <>
+                    You are planning to stop at {canRetireAt.plannedAge}, and that works — your
+                    money lasts to {form.planToAge}
+                    {canRetireAt.age < canRetireAt.plannedAge && (
+                      <> with {canRetireAt.plannedAge - canRetireAt.age} years to spare</>
+                    )}
+                    .
+                  </>
+                ) : (
+                  <>
+                    You are planning to stop at {canRetireAt.plannedAge}, which is{' '}
                     <span className="font-medium">
-                      {l.personId === PRIMARY_ID ? 'You' : 'Partner'}
+                      {canRetireAt.yearsFromPlan} {canRetireAt.yearsFromPlan === 1 ? 'year' : 'years'}
                     </span>{' '}
-                    — life expectancy {l.lifeExpectancyAge}, but 10% reach{' '}
-                    <span className="font-medium">{l.ninetiethPercentileAge}</span>. Chance of
-                    still being alive at {form.planToAge}:{' '}
-                    <span className="font-medium">{Math.round(l.survivalToPlanEnd * 100)}%</span>.
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-slate-500">
-                Period tables: they hold today&apos;s mortality fixed and ignore future
-                improvement, so they understate lifespan — the direction that makes money look
-                like it lasts.
+                    too early — on this plan the money runs out at {r.moneyRunsOutAge}. The table
+                    below shows what would close that gap.
+                  </>
+                )}
+              </p>
+              <p className="mt-3 text-xs text-slate-600">
+                This assumes returns land on the central path every year, which they will not.
+                It is the age that works if things go to plan, not the age that works most of
+                the time — run the simulations below for that answer, which is always later.
               </p>
             </div>
           )}
+          {view === 'detail' && (
+            <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card
+                label="Own money runs out at"
+                value={r.moneyRunsOutAge === null ? 'Never' : `Age ${r.moneyRunsOutAge}`}
+                tone={r.moneyRunsOutAge === null ? 'good' : 'bad'}
+                note={
+                  r.moneyRunsOutYear
+                    ? `in ${r.moneyRunsOutYear} — the Age Pension continues`
+                    : `lasts to age ${form.planToAge}`
+                }
+              />
+              <Card
+                label="Then living on"
+                value={
+                  !depleted
+                    ? '—'
+                    : depleted.agePension > 0
+                      ? `${money(depleted.agePension)}/yr`
+                      : 'Nothing'
+                }
+                tone={depleted ? 'bad' : 'neutral'}
+                note={
+                  !depleted
+                    ? 'your own assets cover the whole plan'
+                    : depleted.agePension > 0
+                      ? `Age Pension only — ${Math.round((depleted.agePension / depleted.spending.total) * 100)}% of your ${money(depleted.spending.total)} target`
+                      : // Running out before Age Pension age is a different, worse problem: there
+                        // is no safety net yet, so saying "Age Pension only" would imply a floor
+                        // that does not exist until ${ruleset.agePension.eligibilityAge.value}.
+                        `no income at all — the Age Pension does not start until ${ruleset.agePension.eligibilityAge.value}`
+                }
+              />
+              <Card
+                label="Bridge to super access"
+                value={bridge ? `${bridge.years} years` : 'None'}
+                tone={bridge && bridge.shortfall > 0 ? 'bad' : 'neutral'}
+                note={
+                  bridge
+                    ? `age ${bridge.startAge} → ${bridge.endAge}, unfunded ${money(bridge.shortfall)}` +
+                      (partnerBridge
+                        ? `; partner ${partnerBridge.startAge} → ${partnerBridge.endAge}`
+                        : '')
+                    : 'super is accessible at retirement'
+                }
+              />
+              <Card
+                label={`Accessible at ${form.retirementAge}`}
+                value={money(at(form.retirementAge)?.balances.accessible ?? 0)}
+                tone="neutral"
+                note={real ? "today's dollars" : 'future dollars'}
+              />
+            </div>
 
-          {offsetAdvice && (
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold">Balances over time</h2>
+                <div className="flex items-center gap-2 text-sm">
+                  <button
+                    onClick={() => setReal(!real)}
+                    className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"
+                  >
+                    {real ? "Today's dollars" : 'Future dollars'}
+                  </button>
+                  <button onClick={download} className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+              <BalanceChart rows={rows} personId={PRIMARY_ID} />
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="mb-1 flex items-baseline justify-between">
+                <h2 className="font-semibold">What you spend, and on what</h2>
+                <span className="text-xs text-slate-500">
+                  {real ? "today's dollars" : 'future dollars'}
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-slate-600">
+                Baseline spending steps down through the go-go, slow-go and no-go phases while
+                health costs climb with age. The green line is the Age Pension.
+              </p>
+              <HealthChart rows={rows} personId={PRIMARY_ID} />
+            </div>
+
+            {r.longevity.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+                <h2 className="mb-2 font-semibold">Longevity (Australian Life Tables 2020–22)</h2>
+                <ul className="space-y-1 text-slate-700">
+                  {r.longevity.map((l) => (
+                    <li key={l.personId}>
+                      <span className="font-medium">
+                        {l.personId === PRIMARY_ID ? 'You' : 'Partner'}
+                      </span>{' '}
+                      — life expectancy {l.lifeExpectancyAge}, but 10% reach{' '}
+                      <span className="font-medium">{l.ninetiethPercentileAge}</span>. Chance of
+                      still being alive at {form.planToAge}:{' '}
+                      <span className="font-medium">{Math.round(l.survivalToPlanEnd * 100)}%</span>.
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-slate-500">
+                  Period tables: they hold today&apos;s mortality fixed and ignore future
+                  improvement, so they understate lifespan — the direction that makes money look
+                  like it lasts.
+                </p>
+              </div>
+            )}
+            </>
+          )}
+
+          {view === 'answer' && (
+            <>
+            {offsetAdvice && (
+              <div className="rounded-lg border border-indigo-200 bg-white p-4">
+                <div className="mb-1 flex items-baseline justify-between">
+                  <h2 className="font-semibold">Offset, or invest?</h2>
+                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                    calculated
+                  </span>
+                </div>
+                <p className="mb-3 text-xs text-slate-600">
+                  A dollar in the offset earns you the loan rate — and does so untaxed, because
+                  interest you never incurred cannot be taxed. A dollar invested earns more on
+                  paper, but you pay tax on the income each year and CGT on the growth when you
+                  sell. Here is the comparison both ways.
+                </p>
+
+                <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded border border-sky-200 bg-sky-50 p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-600">
+                      Offset returns
+                    </div>
+                    <div className="text-2xl font-semibold tabular-nums">
+                      {(offsetAdvice.loanRate * 100).toFixed(2)}%
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      tax-free and certain — it is simply interest you do not pay
+                    </div>
+                  </div>
+                  <div className="rounded border border-amber-200 bg-amber-50 p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-600">
+                      Investing returns, after tax
+                    </div>
+                    <div className="text-2xl font-semibold tabular-nums">
+                      ~{(offsetAdvice.afterTaxInvest * 100).toFixed(2)}%
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      from {(form.returnInvestments * 100).toFixed(2)}% expected, at your{' '}
+                      {(offsetAdvice.marginal * 100).toFixed(0)}% marginal rate — and not certain
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-xs uppercase text-slate-600">
+                      <tr>
+                        <th className="px-2 py-1 text-left font-medium">Choice</th>
+                        <th className="px-2 py-1 text-right font-medium">Interest paid</th>
+                        <th className="px-2 py-1 text-right font-medium">Loan cleared</th>
+                        <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Leave things as they are', o: offsetAdvice.baseline, show: true },
+                        {
+                          label: `Move the ${money(form.offsetBalance)} offset into investments`,
+                          o: offsetAdvice.toInvestments,
+                          show: offsetAdvice.hasOffset,
+                        },
+                        {
+                          label: `Move ${money(form.investments)} of investments into the offset`,
+                          o: offsetAdvice.toOffset,
+                          show: offsetAdvice.hasInvestments,
+                        },
+                      ]
+                        .filter((row) => row.show)
+                        .map((row) => (
+                          <tr key={row.label} className="border-t border-slate-100">
+                            <td className="px-2 py-2 text-slate-800">{row.label}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">
+                              {money(row.o.mortgageInterestPaid)}
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums">
+                              {row.o.mortgagePaidOffAge === null
+                                ? 'not cleared'
+                                : `age ${row.o.mortgagePaidOffAge}`}
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums">
+                              {row.o.runsOutAge === null ? 'never runs out' : `age ${row.o.runsOutAge}`}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {r.mortgagePaidOffAge !== null &&
+                  r.moneyRunsOutAge !== null &&
+                  r.moneyRunsOutAge < r.mortgagePaidOffAge && (
+                    <p className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-800">
+                      Your money runs out at {r.moneyRunsOutAge}, before the loan is cleared at{' '}
+                      {r.mortgagePaidOffAge}. The projection keeps charging the repayment because
+                      the lender would — but in reality you would be unable to make it. Carrying
+                      this loan into retirement is the problem to solve first; where the offset
+                      money sits is a second-order question next to it.
+                    </p>
+                  )}
+                <p className="mt-2 text-xs text-slate-600">
+                  Interest paid and the year the loan clears are what actually separate these
+                  choices. The age your money runs out is a blunter measure — a mortgage this
+                  size moves it either way, so it can look identical across all three.
+                </p>
+
+                <p className="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-700">
+                  <span className="font-medium">The catch the numbers do not show:</span> the
+                  offset return is certain and the investment return is not. Two rates a
+                  fraction apart are not equivalent when one of them can be negative for a
+                  decade. The offset also does nothing once the loan is gone
+                  {r.mortgagePaidOffAge !== null ? ` — here, at ${r.mortgagePaidOffAge}` : ''}, at
+                  which point the money is better off invested. This is general information,
+                  not financial advice.
+                </p>
+              </div>
+            )}
+
             <div className="rounded-lg border border-indigo-200 bg-white p-4">
               <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="font-semibold">Offset, or invest?</h2>
+                <h2 className="font-semibold">What would move the needle</h2>
                 <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
                   calculated
                 </span>
               </div>
               <p className="mb-3 text-xs text-slate-600">
-                A dollar in the offset earns you the loan rate — and does so untaxed, because
-                interest you never incurred cannot be taxed. A dollar invested earns more on
-                paper, but you pay tax on the income each year and CGT on the growth when you
-                sell. Here is the comparison both ways.
+                Each row re-runs the whole projection with one change, against your current plan
+                {r.moneyRunsOutAge === null
+                  ? ', which already lasts the full plan.'
+                  : `, which runs out at ${r.moneyRunsOutAge}.`}{' '}
+                Best first. Apply takes the change into your inputs.
               </p>
-
-              <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                <div className="rounded border border-sky-200 bg-sky-50 p-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-600">
-                    Offset returns
-                  </div>
-                  <div className="text-2xl font-semibold tabular-nums">
-                    {(offsetAdvice.loanRate * 100).toFixed(2)}%
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    tax-free and certain — it is simply interest you do not pay
-                  </div>
-                </div>
-                <div className="rounded border border-amber-200 bg-amber-50 p-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-600">
-                    Investing returns, after tax
-                  </div>
-                  <div className="text-2xl font-semibold tabular-nums">
-                    ~{(offsetAdvice.afterTaxInvest * 100).toFixed(2)}%
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    from {(form.returnInvestments * 100).toFixed(2)}% expected, at your{' '}
-                    {(offsetAdvice.marginal * 100).toFixed(0)}% marginal rate — and not certain
-                  </div>
-                </div>
-              </div>
-
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-xs uppercase text-slate-600">
                     <tr>
-                      <th className="px-2 py-1 text-left font-medium">Choice</th>
-                      <th className="px-2 py-1 text-right font-medium">Interest paid</th>
-                      <th className="px-2 py-1 text-right font-medium">Loan cleared</th>
+                      <th className="px-2 py-1 text-left font-medium">Change</th>
                       <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
+                      <th className="px-2 py-1 text-right font-medium">Difference</th>
+                      <th className="px-2 py-1 text-right font-medium">
+                        Savings left at {form.planToAge}
+                      </th>
+                      <th className="px-2 py-1" />
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { label: 'Leave things as they are', o: offsetAdvice.baseline, show: true },
-                      {
-                        label: `Move the ${money(form.offsetBalance)} offset into investments`,
-                        o: offsetAdvice.toInvestments,
-                        show: offsetAdvice.hasOffset,
-                      },
-                      {
-                        label: `Move ${money(form.investments)} of investments into the offset`,
-                        o: offsetAdvice.toOffset,
-                        show: offsetAdvice.hasInvestments,
-                      },
-                    ]
-                      .filter((row) => row.show)
-                      .map((row) => (
-                        <tr key={row.label} className="border-t border-slate-100">
-                          <td className="px-2 py-2 text-slate-800">{row.label}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">
-                            {money(row.o.mortgageInterestPaid)}
+                    {levers.map((l) => {
+                      const o = l.outcome;
+                      const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
+                      return (
+                        <tr key={l.label} className="border-t border-slate-100 align-top">
+                          <td className="px-2 py-2">
+                            <div className="font-medium text-slate-800">{l.label}</div>
+                            <div className="text-xs text-slate-600">{l.detail}</div>
                           </td>
                           <td className="px-2 py-2 text-right tabular-nums">
-                            {row.o.mortgagePaidOffAge === null
-                              ? 'not cleared'
-                              : `age ${row.o.mortgagePaidOffAge}`}
+                            {o.runsOutAge === null ? (
+                              <span className="font-medium text-emerald-700">never runs out</span>
+                            ) : (
+                              `age ${o.runsOutAge}`
+                            )}
                           </td>
-                          <td className="px-2 py-2 text-right tabular-nums">
-                            {row.o.runsOutAge === null ? 'never runs out' : `age ${row.o.runsOutAge}`}
+                          <td
+                            className={`px-2 py-2 text-right font-medium tabular-nums ${
+                              better ? 'text-emerald-700' : (o.deltaYears ?? 0) < 0 ? 'text-red-700' : 'text-slate-400'
+                            }`}
+                          >
+                            {o.fixesIt
+                              ? 'fixes it'
+                              : o.deltaYears === null
+                                ? '—'
+                                : o.deltaYears > 0
+                                  ? `+${o.deltaYears} yrs`
+                                  : o.deltaYears === 0
+                                    ? 'no change'
+                                    : `${o.deltaYears} yrs`}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums text-slate-600">
+                            {money(o.liquidEstateReal)}
+                          </td>
+                          <td className="px-2 py-2 text-right">
+                            <button
+                              onClick={() => {
+                                setForm((f) => ({ ...f, ...l.change }));
+                                clearResults();
+                              }}
+                              className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                            >
+                              Apply
+                            </button>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              {r.mortgagePaidOffAge !== null &&
-                r.moneyRunsOutAge !== null &&
-                r.moneyRunsOutAge < r.mortgagePaidOffAge && (
-                  <p className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-800">
-                    Your money runs out at {r.moneyRunsOutAge}, before the loan is cleared at{' '}
-                    {r.mortgagePaidOffAge}. The projection keeps charging the repayment because
-                    the lender would — but in reality you would be unable to make it. Carrying
-                    this loan into retirement is the problem to solve first; where the offset
-                    money sits is a second-order question next to it.
-                  </p>
-                )}
-              <p className="mt-2 text-xs text-slate-600">
-                Interest paid and the year the loan clears are what actually separate these
-                choices. The age your money runs out is a blunter measure — a mortgage this
-                size moves it either way, so it can look identical across all three.
-              </p>
-
-              <p className="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-700">
-                <span className="font-medium">The catch the numbers do not show:</span> the
-                offset return is certain and the investment return is not. Two rates a
-                fraction apart are not equivalent when one of them can be negative for a
-                decade. The offset also does nothing once the loan is gone
-                {r.mortgagePaidOffAge !== null ? ` — here, at ${r.mortgagePaidOffAge}` : ''}, at
-                which point the money is better off invested. This is general information,
-                not financial advice.
+              <p className="mt-2 text-xs text-slate-500">
+                Ranked by outcome, not by what the change costs you — working five more years
+                and spending $10,000 less are not equivalent sacrifices, and only you can weigh
+                them. These are also single deterministic paths, so they compare like with like
+                but say nothing about risk; run the simulations below for that.
               </p>
             </div>
-          )}
 
-          <div className="rounded-lg border border-indigo-200 bg-white p-4">
-            <div className="mb-1 flex items-baseline justify-between">
-              <h2 className="font-semibold">What would move the needle</h2>
-              <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
-                calculated
-              </span>
-            </div>
-            <p className="mb-3 text-xs text-slate-600">
-              Each row re-runs the whole projection with one change, against your current plan
-              {r.moneyRunsOutAge === null
-                ? ', which already lasts the full plan.'
-                : `, which runs out at ${r.moneyRunsOutAge}.`}{' '}
-              Best first. Apply takes the change into your inputs.
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="px-2 py-1 text-left font-medium">Change</th>
-                    <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
-                    <th className="px-2 py-1 text-right font-medium">Difference</th>
-                    <th className="px-2 py-1 text-right font-medium">
-                      Savings left at {form.planToAge}
-                    </th>
-                    <th className="px-2 py-1" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {levers.map((l) => {
-                    const o = l.outcome;
-                    const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
-                    return (
-                      <tr key={l.label} className="border-t border-slate-100 align-top">
-                        <td className="px-2 py-2">
-                          <div className="font-medium text-slate-800">{l.label}</div>
-                          <div className="text-xs text-slate-600">{l.detail}</div>
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {o.runsOutAge === null ? (
-                            <span className="font-medium text-emerald-700">never runs out</span>
-                          ) : (
-                            `age ${o.runsOutAge}`
-                          )}
-                        </td>
-                        <td
-                          className={`px-2 py-2 text-right font-medium tabular-nums ${
-                            better ? 'text-emerald-700' : (o.deltaYears ?? 0) < 0 ? 'text-red-700' : 'text-slate-400'
-                          }`}
-                        >
-                          {o.fixesIt
-                            ? 'fixes it'
-                            : o.deltaYears === null
-                              ? '—'
-                              : o.deltaYears > 0
-                                ? `+${o.deltaYears} yrs`
-                                : o.deltaYears === 0
-                                  ? 'no change'
-                                  : `${o.deltaYears} yrs`}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums text-slate-600">
-                          {money(o.liquidEstateReal)}
-                        </td>
-                        <td className="px-2 py-2 text-right">
-                          <button
-                            onClick={() => {
-                              setForm((f) => ({ ...f, ...l.change }));
-                              clearResults();
-                            }}
-                            className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
-                          >
-                            Apply
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Ranked by outcome, not by what the change costs you — working five more years
-              and spending $10,000 less are not equivalent sacrifices, and only you can weigh
-              them. These are also single deterministic paths, so they compare like with like
-              but say nothing about risk; run the simulations below for that.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-indigo-200 bg-white p-4">
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <h2 className="font-semibold">How confident can you be?</h2>
-              <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
-                calculated
-              </span>
-              <label className="flex items-center gap-1 text-sm">
-                Target confidence
-                <input
-                  className="w-16 rounded border border-slate-300 px-2 py-1 text-right tabular-nums"
-                  value={confidence}
-                  onChange={(e) => {
-                    setConfidence(Number(e.target.value.replace(/[^0-9]/g, '')) || 0);
-                    setSpendSolve(null);
-                    setAgeSolve(null);
-                  }}
-                />
-                %
-              </label>
-              <button
-                disabled={busy !== null}
-                onClick={() =>
-                  run('simulating', () =>
-                    setMc(monteCarlo(scenario, ruleset, ds, { runs: 5000, seed: 42 })),
-                  )
-                }
-                className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-              >
-                Run 5,000 simulations
-              </button>
-              <button
-                disabled={busy !== null}
-                onClick={() =>
-                  run('solving spend', () =>
-                    setSpendSolve(
-                      maxSustainableSpend(scenario, ruleset, ds, {
-                        confidence: conf,
-                        searchRuns: 600,
-                        runs: 2000,
-                        seed: 42,
-                      }),
-                    ),
-                  )
-                }
-                className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
-              >
-                Max sustainable spend
-              </button>
-              <button
-                disabled={busy !== null}
-                onClick={() =>
-                  run('solving age', () =>
-                    setAgeSolve(
-                      earliestRetirementAge(scenario, ruleset, ds, {
-                        confidence: conf,
-                        searchRuns: 600,
-                        runs: 2000,
-                        seed: 42,
-                      }),
-                    ),
-                  )
-                }
-                className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
-              >
-                Earliest retirement age
-              </button>
-              {busy ? (
-                <span className="text-sm text-slate-600">{busy}… the page will pause</span>
-              ) : (
-                <span className="text-xs text-slate-500">
-                  Runs in this browser — takes a few seconds and pauses the page while it works.
+            <div className="rounded-lg border border-indigo-200 bg-white p-4">
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <h2 className="font-semibold">How confident can you be?</h2>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                  calculated
                 </span>
+                <label className="flex items-center gap-1 text-sm">
+                  Target confidence
+                  <input
+                    className="w-16 rounded border border-slate-300 px-2 py-1 text-right tabular-nums"
+                    value={confidence}
+                    onChange={(e) => {
+                      setConfidence(Number(e.target.value.replace(/[^0-9]/g, '')) || 0);
+                      setSpendSolve(null);
+                      setAgeSolve(null);
+                    }}
+                  />
+                  %
+                </label>
+                <button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run('simulating', () =>
+                      setMc(monteCarlo(scenario, ruleset, ds, { runs: 5000, seed: 42 })),
+                    )
+                  }
+                  className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  Run 5,000 simulations
+                </button>
+                <button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run('solving spend', () =>
+                      setSpendSolve(
+                        maxSustainableSpend(scenario, ruleset, ds, {
+                          confidence: conf,
+                          searchRuns: 600,
+                          runs: 2000,
+                          seed: 42,
+                        }),
+                      ),
+                    )
+                  }
+                  className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  Max sustainable spend
+                </button>
+                <button
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run('solving age', () =>
+                      setAgeSolve(
+                        earliestRetirementAge(scenario, ruleset, ds, {
+                          confidence: conf,
+                          searchRuns: 600,
+                          runs: 2000,
+                          seed: 42,
+                        }),
+                      ),
+                    )
+                  }
+                  className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  Earliest retirement age
+                </button>
+                {busy ? (
+                  <span className="text-sm text-slate-600">{busy}… the page will pause</span>
+                ) : (
+                  <span className="text-xs text-slate-500">
+                    Runs in this browser — takes a few seconds and pauses the page while it works.
+                  </span>
+                )}
+              </div>
+
+              {(spendSolve || ageSolve) && (
+                <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                  {spendSolve && (
+                    <SolveCard
+                      label={`Most you can spend at ${confidence}% confidence`}
+                      value={spendSolve.value === null ? 'No amount works' : `${money(spendSolve.value)}/yr`}
+                      result={spendSolve}
+                    />
+                  )}
+                  {ageSolve && (
+                    <SolveCard
+                      label={`Earliest you can retire at ${confidence}% confidence`}
+                      value={ageSolve.value === null ? 'Not within the plan' : `Age ${ageSolve.value}`}
+                      result={ageSolve}
+                    />
+                  )}
+                </div>
+              )}
+
+              {mc ? (
+                <>
+                  <div className="mb-3 flex items-baseline gap-3">
+                    <span className="text-3xl font-semibold">
+                      {(mc.successProbability * 100).toFixed(0)}%
+                    </span>
+                    <span className="text-sm text-slate-600">
+                      of {mc.runs.toLocaleString()} simulated futures never ran out
+                      {mc.medianFailureAge !== null && (
+                        <> — the ones that did ran out at a median age of {mc.medianFailureAge}</>
+                      )}
+                      . ({(mc.elapsedMs / 1000).toFixed(1)}s)
+                    </span>
+                  </div>
+                  <FanChart fan={mc.fan} />
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600">
+                    {mc.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  The projection above is a single path. Run the simulations to see the spread of
+                  outcomes and a probability of success.
+                </p>
               )}
             </div>
 
-            {(spendSolve || ageSolve) && (
-              <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                {spendSolve && (
-                  <SolveCard
-                    label={`Most you can spend at ${confidence}% confidence`}
-                    value={spendSolve.value === null ? 'No amount works' : `${money(spendSolve.value)}/yr`}
-                    result={spendSolve}
-                  />
-                )}
-                {ageSolve && (
-                  <SolveCard
-                    label={`Earliest you can retire at ${confidence}% confidence`}
-                    value={ageSolve.value === null ? 'Not within the plan' : `Age ${ageSolve.value}`}
-                    result={ageSolve}
-                  />
-                )}
-              </div>
-            )}
+            </>
+          )}
 
-            {mc ? (
-              <>
-                <div className="mb-3 flex items-baseline gap-3">
-                  <span className="text-3xl font-semibold">
-                    {(mc.successProbability * 100).toFixed(0)}%
-                  </span>
-                  <span className="text-sm text-slate-600">
-                    of {mc.runs.toLocaleString()} simulated futures never ran out
-                    {mc.medianFailureAge !== null && (
-                      <> — the ones that did ran out at a median age of {mc.medianFailureAge}</>
-                    )}
-                    . ({(mc.elapsedMs / 1000).toFixed(1)}s)
-                  </span>
-                </div>
-                <FanChart fan={mc.fan} />
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600">
-                  {mc.notes.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-sm text-slate-600">
-                The projection above is a single path. Run the simulations to see the spread of
-                outcomes and a probability of success.
-              </p>
-            )}
-          </div>
+          {view === 'detail' && (
+            <>
+            <Panel title="Not modelled yet — these numbers are incomplete" tone="warn" items={r.notModelled} />
+            {r.warnings.length > 0 && <Panel title="Assumptions and flags" tone="info" items={r.warnings} />}
 
-          <Panel title="Not modelled yet — these numbers are incomplete" tone="warn" items={r.notModelled} />
-          {r.warnings.length > 0 && <Panel title="Assumptions and flags" tone="info" items={r.warnings} />}
-
-          <div className="rounded-lg border border-slate-200 bg-white">
-            <h2 className="border-b border-slate-200 p-3 font-semibold">
-              Projection ({real ? "today's dollars" : 'future dollars'})
-            </h2>
-            <div className="max-h-[520px] overflow-auto">
-              <table className="w-full text-right text-sm tabular-nums">
-                <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-600">
-                  <tr>
-                    {[
-                      'Year',
-                      form.hasPartner ? 'Ages' : 'Age',
-                      'Salary',
-                      'Age Pension',
-                      'Tax',
-                      'Spend',
-                      'Drawdown',
-                      'Cash',
-                      'Investments',
-                      'Super (accum)',
-                      'Super (pension)',
-                      'Home',
-                      'Accessible',
-                      'Short',
-                    ].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-2 py-2 font-medium">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr
-                      key={row.planYear}
-                      className={`border-t border-slate-100 ${row.shortfall > 0 ? 'bg-red-50' : ''} ${
-                        form.hasPartner && !row.alive.includes(PARTNER_ID) ? 'text-slate-500' : ''
-                      }`}
-                      title={row.events.join(' ')}
-                    >
-                      <td className="px-2 py-1 text-left">{row.calendarYear}</td>
-                      <td className="px-2 py-1">
-                        {row.ages[PRIMARY_ID]}
-                        {form.hasPartner && (
-                          <span className="text-slate-400">/{row.ages[PARTNER_ID]}</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1">{money(row.income.salary)}</td>
-                      <td
-                        className="px-2 py-1 text-emerald-700"
-                        title={
-                          row.agePension > 0
-                            ? `Cut back by the ${row.agePensionDetail.bindingTest} test. Deemed income ${money(row.agePensionDetail.deemedIncome)} against a full rate of ${money(row.agePensionDetail.maxRate)}.`
-                            : 'No entitlement this year'
-                        }
-                      >
-                        {money(row.agePension)}
-                      </td>
-                      <td
-                        className="px-2 py-1"
-                        title={`Personal ${money(row.tax.personal)}, super earnings ${money(row.tax.superEarnings)}, contributions ${money(row.tax.superContributions)}`}
-                      >
-                        {money(row.tax.total)}
-                      </td>
-                      <td className="px-2 py-1">{money(row.spending.total)}</td>
-                      <td className="px-2 py-1">{money(row.drawdown.total)}</td>
-                      <td className="px-2 py-1">{money(row.balances.cash)}</td>
-                      <td className="px-2 py-1">{money(row.balances.investments)}</td>
-                      <td className="px-2 py-1">{money(row.balances.superAccumulation)}</td>
-                      <td className="px-2 py-1">{money(row.balances.superPension)}</td>
-                      <td className="px-2 py-1 text-slate-400">{money(row.balances.primaryResidence)}</td>
-                      <td className="px-2 py-1 font-medium">{money(row.balances.accessible)}</td>
-                      <td className="px-2 py-1 text-red-700">{row.shortfall > 0 ? money(row.shortfall) : ''}</td>
+            <div className="rounded-lg border border-slate-200 bg-white">
+              <h2 className="border-b border-slate-200 p-3 font-semibold">
+                Projection ({real ? "today's dollars" : 'future dollars'})
+              </h2>
+              <div className="max-h-[520px] overflow-auto">
+                <table className="w-full text-right text-sm tabular-nums">
+                  <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-600">
+                    <tr>
+                      {[
+                        'Year',
+                        form.hasPartner ? 'Ages' : 'Age',
+                        'Salary',
+                        'Age Pension',
+                        'Tax',
+                        'Spend',
+                        'Drawdown',
+                        'Cash',
+                        'Investments',
+                        'Super (accum)',
+                        'Super (pension)',
+                        'Home',
+                        'Accessible',
+                        'Short',
+                      ].map((h) => (
+                        <th key={h} className="whitespace-nowrap px-2 py-2 font-medium">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr
+                        key={row.planYear}
+                        className={`border-t border-slate-100 ${row.shortfall > 0 ? 'bg-red-50' : ''} ${
+                          form.hasPartner && !row.alive.includes(PARTNER_ID) ? 'text-slate-500' : ''
+                        }`}
+                        title={row.events.join(' ')}
+                      >
+                        <td className="px-2 py-1 text-left">{row.calendarYear}</td>
+                        <td className="px-2 py-1">
+                          {row.ages[PRIMARY_ID]}
+                          {form.hasPartner && (
+                            <span className="text-slate-400">/{row.ages[PARTNER_ID]}</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1">{money(row.income.salary)}</td>
+                        <td
+                          className="px-2 py-1 text-emerald-700"
+                          title={
+                            row.agePension > 0
+                              ? `Cut back by the ${row.agePensionDetail.bindingTest} test. Deemed income ${money(row.agePensionDetail.deemedIncome)} against a full rate of ${money(row.agePensionDetail.maxRate)}.`
+                              : 'No entitlement this year'
+                          }
+                        >
+                          {money(row.agePension)}
+                        </td>
+                        <td
+                          className="px-2 py-1"
+                          title={`Personal ${money(row.tax.personal)}, super earnings ${money(row.tax.superEarnings)}, contributions ${money(row.tax.superContributions)}`}
+                        >
+                          {money(row.tax.total)}
+                        </td>
+                        <td className="px-2 py-1">{money(row.spending.total)}</td>
+                        <td className="px-2 py-1">{money(row.drawdown.total)}</td>
+                        <td className="px-2 py-1">{money(row.balances.cash)}</td>
+                        <td className="px-2 py-1">{money(row.balances.investments)}</td>
+                        <td className="px-2 py-1">{money(row.balances.superAccumulation)}</td>
+                        <td className="px-2 py-1">{money(row.balances.superPension)}</td>
+                        <td className="px-2 py-1 text-slate-400">{money(row.balances.primaryResidence)}</td>
+                        <td className="px-2 py-1 font-medium">{money(row.balances.accessible)}</td>
+                        <td className="px-2 py-1 text-red-700">{row.shortfall > 0 ? money(row.shortfall) : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+            </>
+          )}
 
           <p className="pb-8 text-xs text-slate-500">
             General information only, not personal financial advice. Super guarantee {pct(ruleset.super.guaranteeRate.value)},

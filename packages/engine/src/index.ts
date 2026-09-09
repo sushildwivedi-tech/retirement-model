@@ -15,8 +15,16 @@ export {
 export { survivalCurve, lifespanPercentile, lifeExpectancy } from './longevity';
 export { monteCarlo, DEFAULT_CORRELATIONS, DEFAULT_VOLATILITY } from './montecarlo';
 export type { MonteCarloOptions, MonteCarloResult, FanBand } from './montecarlo';
-export { maxSustainableSpend, earliestRetirementAge } from './goalseek';
-export type { GoalSeekOptions, GoalSeekResult } from './goalseek';
+export {
+  maxSustainableSpend,
+  earliestRetirementAge,
+  earliestRetirementAgeDeterministic,
+} from './goalseek';
+export type {
+  GoalSeekOptions,
+  GoalSeekResult,
+  DeterministicRetirementAge,
+} from './goalseek';
 export {
   runHistoricalSequence,
   crashInFirstRetirementYear,

@@ -89,6 +89,24 @@ Carlo and the solvers all run in your browser tab. The deployed site is static.
 Because it is browser-local, clearing site data or switching browser starts from the
 example again. Export is the backup.
 
+## Two pages
+
+**When can you retire?** (`/`) leads with the answer: the earliest age at which the money
+lasts the whole plan, how far that is from the age you were planning on, and a table of
+changes that would move it. Then a confidence check, which runs the simulations.
+
+That headline is **deterministic on purpose**. It is a binary search over a handful of
+projections, each well under a millisecond, so it updates while you type — the Monte Carlo
+answer takes seconds and cannot sit behind a live number. It is the age that works if
+returns behave, not the age that works most of the time, and the page says so. The
+probabilistic answer is always later.
+
+**The detail** (`/detail`) has the workings: balances and spending over time, longevity,
+the year-by-year table, and everything the model does not cover.
+
+Inputs are shared between the two through the same browser-local store, so switching pages
+keeps whatever you have entered.
+
 ## Run it
 
 ```bash

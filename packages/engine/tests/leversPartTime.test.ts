@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { project } from '../src/engine';
 import { compareScenarios } from '../src/levers';
+import {
+  earliestRetirementAge,
+  earliestRetirementAgeDeterministic,
+} from '../src/goalseek';
 import { loadRuleset, loadDataset } from '../src/loadRuleset';
 import { baseCase } from '../src/fixtures/baseCase';
 import type { HealthCostCurve, LifeTables, Scenario } from '../src/types';
@@ -161,5 +165,101 @@ describe('comparing plan changes', () => {
     expect(c.outcomes[0].runsOutAge).toBeNull();
     expect(c.outcomes[0].fixesIt).toBe(true);
     expect(c.outcomes[0].deltaYears).toBeNull();
+  });
+});
+
+describe('earliest retirement age, deterministically', () => {
+  it('finds an age at which the money lasts the whole plan', () => {
+    const r = earliestRetirementAgeDeterministic(baseCase, ruleset, datasets);
+    expect(r.age).not.toBeNull();
+    const at = project(
+      {
+        ...baseCase,
+        household: {
+          ...baseCase.household,
+          people: [{ ...baseCase.household.people[0], retirementAge: r.age! }],
+        },
+      },
+      ruleset,
+      datasets,
+    );
+    expect(at.moneyRunsOutAge).toBeNull();
+  });
+
+  it('is genuinely the EARLIEST such age - one year sooner fails', () => {
+    const r = earliestRetirementAgeDeterministic(baseCase, ruleset, datasets);
+    const oneEarlier = project(
+      {
+        ...baseCase,
+        household: {
+          ...baseCase.household,
+          people: [{ ...baseCase.household.people[0], retirementAge: r.age! - 1 }],
+        },
+      },
+      ruleset,
+      datasets,
+    );
+    expect(oneEarlier.moneyRunsOutAge).not.toBeNull();
+  });
+
+  it('reports how far it is from the age currently planned', () => {
+    const r = earliestRetirementAgeDeterministic(baseCase, ruleset, datasets);
+    expect(r.plannedAge).toBe(baseCase.household.people[0].retirementAge);
+    expect(r.yearsFromPlan).toBe(r.age! - r.plannedAge);
+    expect(r.plannedAgeWorks).toBe(false); // the example retires too early to last
+  });
+
+  it('says the planned age works when it does', () => {
+    const modest: Scenario = {
+      ...baseCase,
+      household: { ...baseCase.household, retirementSpending: 25_000 },
+    };
+    const r = earliestRetirementAgeDeterministic(modest, ruleset, datasets);
+    expect(r.plannedAgeWorks).toBe(true);
+    expect(r.age!).toBeLessThanOrEqual(r.plannedAge);
+  });
+
+  it('returns null when no retirement age works at all', () => {
+    // Reaching this branch takes a frankly absurd number, and that is the point. Deferring
+    // retirement is such a powerful lever that even a $400k spend is affordable by 77, and
+    // even with no salary at all fifty years of untouched compounding rescues $2m a year.
+    // The null path exists for completeness rather than for any realistic household.
+    const impossible: Scenario = {
+      ...baseCase,
+      household: {
+        ...baseCase.household,
+        retirementSpending: 100_000_000,
+        annualSavings: 0,
+        people: [{ ...baseCase.household.people[0], salary: 0 }],
+      },
+    };
+    const r = earliestRetirementAgeDeterministic(impossible, ruleset, datasets);
+    expect(r.age).toBeNull();
+    expect(r.yearsFromPlan).toBeNull();
+  });
+
+  it('working longer can rescue a spend that looks impossible', () => {
+    // Worth pinning because it is counter-intuitive and it is what the headline relies on:
+    // the answer to "when can I retire" is almost never "never".
+    const heavy: Scenario = {
+      ...baseCase,
+      household: { ...baseCase.household, retirementSpending: 400_000 },
+    };
+    const r = earliestRetirementAgeDeterministic(heavy, ruleset, datasets);
+    expect(r.age).not.toBeNull();
+    expect(r.age!).toBeGreaterThan(70);
+  });
+
+  it('is always earlier than the answer that accounts for risk', () => {
+    // The central path is kinder than most paths, so the deterministic age must not be
+    // later than the one that has to clear a confidence bar.
+    const det = earliestRetirementAgeDeterministic(baseCase, ruleset, datasets);
+    const prob = earliestRetirementAge(baseCase, ruleset, datasets, {
+      confidence: 0.85,
+      searchRuns: 200,
+      runs: 300,
+      seed: 5,
+    });
+    expect(det.age!).toBeLessThanOrEqual(prob.value!);
   });
 });

@@ -1,5 +1,5 @@
 import { monteCarlo, type MonteCarloOptions } from './montecarlo';
-import type { Datasets } from './engine';
+import { project, type Datasets } from './engine';
 import type { Ruleset, Scenario } from './types';
 
 export interface GoalSeekOptions extends MonteCarloOptions {
@@ -42,6 +42,53 @@ const withRetirementAge = (s: Scenario, age: number): Scenario => ({
     e.kind === 'downsize' && e.atAge < age ? { ...e, atAge: age } : e,
   ),
 });
+
+export interface DeterministicRetirementAge {
+  /** Earliest age the money lasts the whole plan on the central return path. */
+  age: number | null;
+  /** The age currently planned, for comparison. */
+  plannedAge: number;
+  /** How many years earlier (negative) or later (positive) than the current plan. */
+  yearsFromPlan: number | null;
+  /** True when the currently planned age already works. */
+  plannedAgeWorks: boolean;
+}
+
+/**
+ * The earliest retirement age that lasts the whole plan on the central return path.
+ *
+ * Deterministic, so it is instant - a binary search over about six projections, each
+ * well under a millisecond. That is what makes it usable as a headline that updates
+ * while you type, where the Monte Carlo version takes seconds.
+ *
+ * It answers a different question from `earliestRetirementAge`, and a softer one: this is
+ * "the age that works if returns behave", not "the age that works most of the time". The
+ * probabilistic answer is always later, and the UI should say so.
+ */
+export function earliestRetirementAgeDeterministic(
+  scenario: Scenario,
+  ruleset: Ruleset,
+  datasets: Datasets = {},
+): DeterministicRetirementAge {
+  const first = scenario.household.people[0];
+  const plannedAge = first.retirementAge;
+  const lasts = (age: number) =>
+    project(withRetirementAge(scenario, age), ruleset, datasets).moneyRunsOutAge === null;
+
+  const plannedAgeWorks = lasts(plannedAge);
+  let lo = first.currentAge;
+  let hi = scenario.assumptions.planToAge;
+  if (!lasts(hi)) {
+    return { age: null, plannedAge, yearsFromPlan: null, plannedAgeWorks };
+  }
+  // Success is monotonic in retirement age, so the first age that works is the answer.
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (lasts(mid)) hi = mid;
+    else lo = mid + 1;
+  }
+  return { age: lo, plannedAge, yearsFromPlan: lo - plannedAge, plannedAgeWorks };
+}
 
 /**
  * The largest annual spend that still meets the confidence target.

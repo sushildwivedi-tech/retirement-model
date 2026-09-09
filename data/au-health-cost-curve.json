@@ -1,0 +1,152 @@
+{
+ "id": "au-health-cost-curve",
+ "name": "Per-person health spending by age, Australia",
+ "status": "sourced",
+ "retrievedAt": "2026-09-09",
+ "sources": [
+  {
+   "what": "Total health system expenditure by age group (Total Persons, all areas of expenditure), 2018-19",
+   "who": "AIHW, Disease Expenditure in Australia 2018-19, Data tables, Table 2: Health expenditure by demographics and area of expenditure",
+   "url": "https://www.aihw.gov.au/reports/health-welfare-expenditure/disease-expenditure-australia/data"
+  },
+  {
+   "what": "Estimated resident population by single year of age, June 2019, used as the denominator",
+   "who": "ABS, National, state and territory population, Table 59: Estimated Resident Population By Single Year Of Age, Australia",
+   "url": "https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/latest-release"
+  },
+  {
+   "what": "Average out-of-pocket health spending by individuals, $1,634 per person in 2023-24, used to set the LEVEL of the curve",
+   "who": "AIHW, Health expenditure Australia 2023-24, Non-government sources, 'Per person individual health spending'",
+   "url": "https://www.aihw.gov.au/reports/health-welfare-expenditure/health-expenditure-australia-2023-24/contents/spending-trends-by-source/non-government-sources"
+  }
+ ],
+ "transformation": "AIHW total system spending for each age band was divided by the ABS estimated resident population in the same band at June 2019, giving spending per person per band. Each band is then expressed as an index against the all-ages average of $5,288 per person. The index is the SHAPE of the curve. The LEVEL comes separately from the AIHW's $1,634 average out-of-pocket spend per person in 2023-24, so modelled out-of-pocket cost at an age = 1634 x index(age).",
+ "assumption": "ASSUMED: out-of-pocket spending follows the same age shape as total system spending. It does not exactly - older Australians receive proportionally more subsidised care (PBS safety net, bulk billing, public hospital), which flattens the out-of-pocket curve, while they also buy more unsubsidised dental, aids and appliances, which steepens it. The two pull in opposite directions and the net effect is not quantified here. Treat the level as indicative and the shape as the well-evidenced part.",
+ "nationalAveragePerPerson2018_19": 5287.7,
+ "outOfPocketPerPerson2023_24": 1634,
+ "outOfPocketComposition2023_24": {
+  "otherMedications": 585,
+  "dentalServices": 296,
+  "referredAndUnreferredMedical": 265,
+  "hospitalServices": 144,
+  "aidsAndAppliances": 128,
+  "otherHealthPractitioners": 131,
+  "pbsSubsidisedMedications": 59
+ },
+ "bands": [
+  {
+   "label": "<1 year",
+   "midpointAge": 0,
+   "spendPerPerson2018_19": 11097.37,
+   "index": 2.0987
+  },
+  {
+   "label": "1-4 years",
+   "midpointAge": 2.5,
+   "spendPerPerson2018_19": 1902.86,
+   "index": 0.3599
+  },
+  {
+   "label": "5-9 years",
+   "midpointAge": 7.0,
+   "spendPerPerson2018_19": 1308.6,
+   "index": 0.2475
+  },
+  {
+   "label": "10-14 years",
+   "midpointAge": 12.0,
+   "spendPerPerson2018_19": 1416.27,
+   "index": 0.2678
+  },
+  {
+   "label": "15-19 years",
+   "midpointAge": 17.0,
+   "spendPerPerson2018_19": 2088.33,
+   "index": 0.3949
+  },
+  {
+   "label": "20-24 years",
+   "midpointAge": 22.0,
+   "spendPerPerson2018_19": 2382.37,
+   "index": 0.4505
+  },
+  {
+   "label": "25-29 years",
+   "midpointAge": 27.0,
+   "spendPerPerson2018_19": 2916.67,
+   "index": 0.5516
+  },
+  {
+   "label": "30-34 years",
+   "midpointAge": 32.0,
+   "spendPerPerson2018_19": 3604.23,
+   "index": 0.6816
+  },
+  {
+   "label": "35-39 years",
+   "midpointAge": 37.0,
+   "spendPerPerson2018_19": 3659.86,
+   "index": 0.6921
+  },
+  {
+   "label": "40-44 years",
+   "midpointAge": 42.0,
+   "spendPerPerson2018_19": 3678.83,
+   "index": 0.6957
+  },
+  {
+   "label": "45-49 years",
+   "midpointAge": 47.0,
+   "spendPerPerson2018_19": 4040.27,
+   "index": 0.7641
+  },
+  {
+   "label": "50-54 years",
+   "midpointAge": 52.0,
+   "spendPerPerson2018_19": 4737.83,
+   "index": 0.896
+  },
+  {
+   "label": "55-59 years",
+   "midpointAge": 57.0,
+   "spendPerPerson2018_19": 5637.72,
+   "index": 1.0662
+  },
+  {
+   "label": "60-64 years",
+   "midpointAge": 62.0,
+   "spendPerPerson2018_19": 7019.37,
+   "index": 1.3275
+  },
+  {
+   "label": "65-69 years",
+   "midpointAge": 67.0,
+   "spendPerPerson2018_19": 8875.08,
+   "index": 1.6784
+  },
+  {
+   "label": "70-74 years",
+   "midpointAge": 72.0,
+   "spendPerPerson2018_19": 11045.66,
+   "index": 2.0889
+  },
+  {
+   "label": "75-79 years",
+   "midpointAge": 77.0,
+   "spendPerPerson2018_19": 13577.2,
+   "index": 2.5677
+  },
+  {
+   "label": "80-84 years",
+   "midpointAge": 82.0,
+   "spendPerPerson2018_19": 15572.23,
+   "index": 2.945
+  },
+  {
+   "label": "85 years and over",
+   "midpointAge": 90,
+   "spendPerPerson2018_19": 16654.57,
+   "index": 3.1497
+  }
+ ]
+}

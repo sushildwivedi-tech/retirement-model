@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.DS_Store
+.env*.local
+
+# Your own planning spec and figures - kept locally, never committed
+docs/build-plan.md

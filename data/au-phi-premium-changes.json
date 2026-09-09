@@ -1,0 +1,134 @@
+{
+ "id": "au-phi-premium-changes",
+ "name": "Average annual price changes in private health insurance premiums, 1997-2026",
+ "status": "sourced",
+ "retrievedAt": "2026-09-09",
+ "source": "Australian Government Department of Health, Disability and Ageing - 'Average annual price changes in private health insurance premiums', industry average row.",
+ "url": "https://www.health.gov.au/resources/publications/average-annual-price-changes-in-private-health-insurance-premiums",
+ "transformation": "Industry average row read from the published .xlsx. The sheet stores some cells as percentage points and others as decimal fractions; any value below 0.5 was multiplied by 100. Changes take effect 1 April each year.",
+ "industryAveragePercentByYear": [
+  {
+   "year": 1997,
+   "percent": 7.0
+  },
+  {
+   "year": 1998,
+   "percent": 5.0
+  },
+  {
+   "year": 1999,
+   "percent": 5.0
+  },
+  {
+   "year": 2000,
+   "percent": 1.8
+  },
+  {
+   "year": 2001,
+   "percent": -0.01
+  },
+  {
+   "year": 2002,
+   "percent": 6.88
+  },
+  {
+   "year": 2003,
+   "percent": 7.4
+  },
+  {
+   "year": 2004,
+   "percent": 7.58
+  },
+  {
+   "year": 2005,
+   "percent": 7.96
+  },
+  {
+   "year": 2006,
+   "percent": 5.68
+  },
+  {
+   "year": 2007,
+   "percent": 4.52
+  },
+  {
+   "year": 2008,
+   "percent": 4.94
+  },
+  {
+   "year": 2009,
+   "percent": 6.02
+  },
+  {
+   "year": 2010,
+   "percent": 5.78
+  },
+  {
+   "year": 2011,
+   "percent": 5.56
+  },
+  {
+   "year": 2012,
+   "percent": 5.06
+  },
+  {
+   "year": 2013,
+   "percent": 5.6
+  },
+  {
+   "year": 2014,
+   "percent": 6.2
+  },
+  {
+   "year": 2015,
+   "percent": 6.18
+  },
+  {
+   "year": 2016,
+   "percent": 5.59
+  },
+  {
+   "year": 2017,
+   "percent": 4.84
+  },
+  {
+   "year": 2018,
+   "percent": 3.95
+  },
+  {
+   "year": 2019,
+   "percent": 3.25
+  },
+  {
+   "year": 2020,
+   "percent": 2.92
+  },
+  {
+   "year": 2021,
+   "percent": 2.74
+  },
+  {
+   "year": 2022,
+   "percent": 2.7
+  },
+  {
+   "year": 2023,
+   "percent": 2.9
+  },
+  {
+   "year": 2024,
+   "percent": 3.03
+  },
+  {
+   "year": 2025,
+   "percent": 3.73
+  },
+  {
+   "year": 2026,
+   "percent": 4.41
+  }
+ ],
+ "meanLast10Years": 3.45,
+ "meanLast20Years": 4.5,
+ "note": "Every one of the last ten years has run above the RBA's 2.5% inflation midpoint. This is why the build plan asks for private health insurance to be a separate spending line with its own index rather than folded into CPI-indexed baseline spending."
+}

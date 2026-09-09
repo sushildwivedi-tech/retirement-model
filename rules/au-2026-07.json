@@ -1,0 +1,512 @@
+{
+  "id": "au-2026-07",
+  "jurisdiction": "AU",
+  "financialYear": "2026-27",
+  "effectiveDate": "2026-07-01",
+  "expiresDate": "2027-06-30",
+  "retrievedAt": "2026-09-09",
+  "note": "Every leaf carries a status of 'sourced', 'assumed' or 'unsourced'. Nothing in this file may be filled in from model memory - see docs/build-plan.md section 2.8. Values marked 'unsourced' are not yet used by the engine. Age Pension rates and thresholds change on 20 March and 20 September; the rates here are those current on 2026-09-09 and the next adjustment is 20 September 2026.",
+  "super": {
+    "guaranteeRate": {
+      "value": 0.12,
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 21: Super guarantee percentage (period 1 July 2026 - 30 June 2027)",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/super-guarantee",
+      "retrievedAt": "2026-09-09"
+    },
+    "maximumContributionBaseAnnual": {
+      "value": 270830,
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 23: Maximum contribution base from 1 July 2026 (2026-27). Payday Super moved this from a quarterly to an annual basis on 1 July 2026.",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/super-guarantee",
+      "retrievedAt": "2026-09-09"
+    },
+    "concessionalCap": {
+      "value": 32500,
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 1.1: Concessional contributions caps (2026-27, all ages)",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/contributions-caps",
+      "retrievedAt": "2026-09-09"
+    },
+    "nonConcessionalCap": {
+      "value": 130000,
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 4: Non-concessional contributions cap (2026-27). Nil if total super balance at 30 June of the prior year is at or above the general transfer balance cap.",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/contributions-caps",
+      "retrievedAt": "2026-09-09"
+    },
+    "carryForwardTotalSuperBalanceThreshold": {
+      "value": 500000,
+      "status": "sourced",
+      "source": "ATO - Contributions caps, 'Unused concessional cap carry forward'. Unused concessional cap may be carried forward for 5 years where total super balance at 30 June of the prior year is under this threshold.",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/contributions-caps",
+      "retrievedAt": "2026-09-09"
+    },
+    "generalTransferBalanceCap": {
+      "value": 2100000,
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 26: General transfer balance cap (2026-27)",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/transfer-balance-cap",
+      "retrievedAt": "2026-09-09"
+    },
+    "earningsTaxAccumulation": {
+      "value": 0.15,
+      "status": "sourced",
+      "source": "ATO - How SMSFs are taxed, 'Tax on income': a complying superannuation fund qualifies for a concessional tax rate of 15%.",
+      "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/self-managed-super-funds-smsf/smsf-administration-and-reporting/how-smsfs-are-taxed",
+      "retrievedAt": "2026-09-09"
+    },
+    "earningsTaxPensionPhase": {
+      "value": 0.0,
+      "status": "sourced",
+      "source": "ATO - How SMSFs are taxed: investment income from assets supporting a retirement-phase income stream is exempt current pension income (ECPI) and is not taxed.",
+      "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/self-managed-super-funds-smsf/smsf-administration-and-reporting/how-smsfs-are-taxed",
+      "retrievedAt": "2026-09-09"
+    },
+    "minimumDrawdownPercentByAge": {
+      "value": [
+        {
+          "fromAge": 0,
+          "percent": 0.04
+        },
+        {
+          "fromAge": 65,
+          "percent": 0.05
+        },
+        {
+          "fromAge": 75,
+          "percent": 0.06
+        },
+        {
+          "fromAge": 80,
+          "percent": 0.07
+        },
+        {
+          "fromAge": 85,
+          "percent": 0.09
+        },
+        {
+          "fromAge": 90,
+          "percent": 0.11
+        },
+        {
+          "fromAge": 95,
+          "percent": 0.14
+        }
+      ],
+      "status": "sourced",
+      "source": "ATO - Key superannuation rates and thresholds, Table 11: Minimum percentage factor for certain pensions and annuities, column '2023-24 onwards'. Indicative factors; precise amounts follow SIS Regulations 1994 pro-rating and rounding.",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/key-superannuation-rates-and-thresholds/payments-from-super",
+      "retrievedAt": "2026-09-09"
+    },
+    "preservationAgeByDateOfBirth": {
+      "value": [
+        {
+          "bornBefore": "1960-07-01",
+          "preservationAge": 55
+        },
+        {
+          "bornFrom": "1960-07-01",
+          "bornBefore": "1961-07-01",
+          "preservationAge": 56
+        },
+        {
+          "bornFrom": "1961-07-01",
+          "bornBefore": "1962-07-01",
+          "preservationAge": 57
+        },
+        {
+          "bornFrom": "1962-07-01",
+          "bornBefore": "1963-07-01",
+          "preservationAge": 58
+        },
+        {
+          "bornFrom": "1963-07-01",
+          "bornBefore": "1964-07-01",
+          "preservationAge": 59
+        },
+        {
+          "bornFrom": "1964-07-01",
+          "preservationAge": 60
+        }
+      ],
+      "status": "sourced",
+      "source": "ATO - Super withdrawal options, 'Preservation age based on date of birth'",
+      "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/withdrawing-and-using-your-super/super-withdrawal-options",
+      "retrievedAt": "2026-09-09"
+    },
+    "downsizerContribution": {
+      "minimumAge": {
+        "value": 55,
+        "status": "sourced",
+        "source": "ATO - Downsizer super contributions, 'Eligibility': aged 55 or older at the time the contribution is made.",
+        "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/downsizer-super-contributions",
+        "retrievedAt": "2026-09-09"
+      },
+      "capPerPerson": {
+        "value": 300000,
+        "status": "sourced",
+        "source": "ATO - Downsizer super contributions, 'Contribution limit': up to $300,000 per eligible person; total downsizer contributions cannot exceed total sale proceeds.",
+        "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/downsizer-super-contributions",
+        "retrievedAt": "2026-09-09"
+      },
+      "minimumOwnershipYears": {
+        "value": 10,
+        "status": "sourced",
+        "source": "ATO - Downsizer super contributions, 'Eligibility': home owned by you and/or your spouse for 10 or more years before the sale.",
+        "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/downsizer-super-contributions",
+        "retrievedAt": "2026-09-09"
+      }
+    },
+    "contributionsTaxConcessional": {
+      "value": 0.15,
+      "status": "sourced",
+      "source": "ATO - How SMSFs are taxed, 'Determining if a contribution is assessable': concessional contributions (employer and salary-sacrifice) are taxed in the fund at 15%.",
+      "url": "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/self-managed-super-funds-smsf/smsf-administration-and-reporting/how-smsfs-are-taxed",
+      "retrievedAt": "2026-09-09"
+    }
+  },
+  "incomeTax": {
+    "brackets": {
+      "value": [
+        {
+          "upTo": 18200,
+          "base": 0,
+          "rate": 0.0,
+          "over": 0
+        },
+        {
+          "upTo": 45000,
+          "base": 0,
+          "rate": 0.15,
+          "over": 18200
+        },
+        {
+          "upTo": 135000,
+          "base": 4020,
+          "rate": 0.3,
+          "over": 45000
+        },
+        {
+          "upTo": 190000,
+          "base": 31020,
+          "rate": 0.37,
+          "over": 135000
+        },
+        {
+          "upTo": null,
+          "base": 51370,
+          "rate": 0.45,
+          "over": 190000
+        }
+      ],
+      "status": "sourced",
+      "source": "ATO - Tax rates - Australian resident, 'Resident tax rates 2026-27'. Excludes the Medicare levy.",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/tax-rates-australian-residents",
+      "retrievedAt": "2026-09-09"
+    },
+    "medicareLevyRate": {
+      "value": 0.02,
+      "status": "sourced",
+      "source": "ATO - Tax rates - Australian resident: 'The above rates do not include the Medicare levy of 2%.'",
+      "url": "https://www.ato.gov.au/tax-rates-and-codes/tax-rates-australian-residents",
+      "retrievedAt": "2026-09-09"
+    },
+    "medicareLevyLowIncomeThresholds": {
+      "value": {
+        "shadeInRate": 0.1,
+        "single": {
+          "lower": 28011,
+          "upper": 35013
+        },
+        "singleWithSapto": {
+          "lower": 44268,
+          "upper": 55335
+        }
+      },
+      "status": "assumed",
+      "source": "ATO - Medicare levy reduction for low-income earners, 'Table: Medicare levy thresholds for a single individual'. ASSUMED: these are the published 2025-26 thresholds applied to 2026-27, because the 2026-27 thresholds were not yet published on 2026-09-09; they are normally lifted each year, so this slightly overstates the levy. The 10% shade-in rate is not stated on the page but is implied by the thresholds: (35,013-28,011) x 10% = 700.20 = 2% x 35,013.",
+      "url": "https://www.ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/medicare-levy/medicare-levy-reduction/medicare-levy-reduction-for-low-income-earners",
+      "retrievedAt": "2026-09-09"
+    },
+    "lowIncomeTaxOffset": {
+      "value": {
+        "maxOffset": 700,
+        "fullOffsetUpTo": 37500,
+        "firstTaper": 0.05,
+        "firstTaperTo": 45000,
+        "secondTaperOffsetAt": 325,
+        "secondTaper": 0.015,
+        "cutOut": 66667
+      },
+      "status": "sourced",
+      "source": "ATO - Low income tax offset: $700 up to $37,500; $700 less 5c per $1 over $37,500 to $45,000; $325 less 1.5c per $1 over $45,000 to $66,667.",
+      "url": "https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/tax-offsets/low-income-tax-offset",
+      "retrievedAt": "2026-09-09"
+    },
+    "seniorsAndPensionersTaxOffset": {
+      "value": {
+        "taperRate": 0.125,
+        "single": {
+          "maxOffset": 2230,
+          "shadeOutThreshold": 34919,
+          "cutOutThreshold": 52759
+        },
+        "couplePartnerEach": {
+          "maxOffset": 1602,
+          "shadeOutThreshold": 30994,
+          "cutOutThreshold": 43810
+        },
+        "illnessSeparatedEach": {
+          "maxOffset": 2040,
+          "shadeOutThreshold": 33732,
+          "cutOutThreshold": 50052
+        }
+      },
+      "status": "sourced",
+      "source": "ATO - Seniors and pensioners tax offset, 'Rates and rebate income thresholds for SAPTO'. Taper is 12.5c per $1 of rebate income above the shade-out threshold.",
+      "url": "https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/tax-offsets/seniors-and-pensioners-tax-offset",
+      "retrievedAt": "2026-09-09"
+    }
+  },
+  "agePension": {
+    "rateEffectiveDate": {
+      "value": "2026-03-20",
+      "status": "sourced",
+      "source": "Services Australia - How much Age Pension you can get: 'The Department of Social Services adjusts these rates every 20 March and 20 September.' The rates below are those current on 2026-09-09, i.e. the 20 March 2026 adjustment. NOTE: the next adjustment is 20 September 2026.",
+      "url": "https://www.servicesaustralia.gov.au/how-much-age-pension-you-can-get",
+      "retrievedAt": "2026-09-09"
+    },
+    "eligibilityAge": {
+      "value": 67,
+      "status": "sourced",
+      "source": "Services Australia - Who can get Age Pension: 'Age Pension age is 67 years or older. There are no plans to change this.'",
+      "url": "https://www.servicesaustralia.gov.au/who-can-get-age-pension",
+      "retrievedAt": "2026-09-09"
+    },
+    "fortnightsPerYear": {
+      "value": 26,
+      "status": "assumed",
+      "source": "Rates are published per fortnight; 26 fortnights per year is the standard annualisation.",
+      "url": "",
+      "retrievedAt": "2026-09-09"
+    },
+    "maxRateFortnight": {
+      "value": {
+        "single": {
+          "basic": 1100.3,
+          "pensionSupplement": 86.5,
+          "energySupplement": 14.1,
+          "total": 1200.9
+        },
+        "coupleEach": {
+          "basic": 829.4,
+          "pensionSupplement": 65.2,
+          "energySupplement": 10.6,
+          "total": 905.2
+        },
+        "coupleCombined": {
+          "basic": 1658.8,
+          "pensionSupplement": 130.4,
+          "energySupplement": 21.2,
+          "total": 1810.4
+        }
+      },
+      "status": "sourced",
+      "source": "Services Australia - How much Age Pension you can get, 'Normal rates' table (maximum rates per fortnight, before tax).",
+      "url": "https://www.servicesaustralia.gov.au/how-much-age-pension-you-can-get",
+      "retrievedAt": "2026-09-09"
+    },
+    "incomeTest": {
+      "value": {
+        "freeAreaFortnight": {
+          "single": 226,
+          "coupleCombined": 396
+        },
+        "taperPerDollar": {
+          "single": 0.5,
+          "coupleCombinedTotal": 0.5
+        },
+        "cutOffFortnight": {
+          "single": 2627.8,
+          "coupleCombined": 4016.8
+        }
+      },
+      "status": "sourced",
+      "source": "Services Australia - Income test for Age Pension, 'What the standard rules are' and 'What the cut-off points are'. Single: 50c per $1 over $226/fn. Couple: each person's pension reduces by 25c per $1 of combined income over $396/fn, i.e. 50c combined.",
+      "url": "https://www.servicesaustralia.gov.au/income-test-for-age-pension",
+      "retrievedAt": "2026-09-09"
+    },
+    "assetsTest": {
+      "value": {
+        "fullPensionLimit": {
+          "singleHomeowner": 333000,
+          "singleNonHomeowner": 600000,
+          "coupleHomeownerCombined": 499000,
+          "coupleNonHomeownerCombined": 766000
+        },
+        "cutOff": {
+          "singleHomeowner": 733500,
+          "singleNonHomeowner": 1000500,
+          "coupleHomeownerCombined": 1102500,
+          "coupleNonHomeownerCombined": 1369500
+        },
+        "taperPerThousandPerFortnight": 3.0
+      },
+      "status": "sourced",
+      "source": "Services Australia - Assets test for Age Pension (limits page last updated 1 July 2026). Taper: DSS Social Security Guide 4.2.3 - from 1 January 2017 every $1,000 over the free area reduces the rate by $3 per fortnight (single or couple combined). Cross-check: (733,500-333,000)/1000*3 = $1,201.50/fn, matching the $1,200.90 maximum single rate.",
+      "url": "https://www.servicesaustralia.gov.au/assets-test-for-age-pension",
+      "retrievedAt": "2026-09-09"
+    },
+    "deeming": {
+      "value": {
+        "lowerRate": 0.0125,
+        "upperRate": 0.0325,
+        "threshold": {
+          "single": 66800,
+          "coupleCombinedAtLeastOnePensioner": 110600,
+          "coupleNeitherPensionerEach": 55300
+        }
+      },
+      "status": "sourced",
+      "source": "Services Australia - Deeming, 'How we work out your deemed income': single, first $66,800 deemed at 1.25% and the remainder at 3.25%; couple with at least one pensioner, first $110,600 combined.",
+      "url": "https://www.servicesaustralia.gov.au/deeming",
+      "retrievedAt": "2026-09-09"
+    },
+    "workBonus": {
+      "value": {
+        "creditPerFortnight": 300,
+        "maximumBalance": 11800
+      },
+      "status": "sourced",
+      "source": "Services Australia - How a Work Bonus works: '$300 credit added to your Work Bonus balance each fortnight. The maximum Work Bonus balance you can accrue is $11,800 credit.' Applies to employment income only, before the income test.",
+      "url": "https://www.servicesaustralia.gov.au/how-work-bonus-works",
+      "retrievedAt": "2026-09-09"
+    }
+  },
+  "capitalGains": {
+    "discountRate": {
+      "value": 0.5,
+      "status": "sourced",
+      "source": "ATO - CGT discount: reduce a capital gain by 50% if the asset was held at least 12 months and you are an Australian resident.",
+      "url": "https://www.ato.gov.au/individuals-and-families/investments-and-assets/capital-gains-tax/cgt-discount",
+      "retrievedAt": "2026-09-09"
+    },
+    "minimumHoldingMonths": {
+      "value": 12,
+      "status": "sourced",
+      "source": "ATO - CGT discount, '12-month ownership requirement'.",
+      "url": "https://www.ato.gov.au/individuals-and-families/investments-and-assets/capital-gains-tax/cgt-discount",
+      "retrievedAt": "2026-09-09"
+    },
+    "pendingChangeNote": {
+      "value": "The ATO CGT discount page carries a notice: 'Recent changes to capital gains tax (CGT) announced in the 2026-27 Federal Budget don't apply to Tax Time 2026.' The content of those changes has not been read or modelled. Re-check before relying on long-horizon CGT output.",
+      "status": "assumed",
+      "source": "ATO - CGT discount page notice, read 2026-09-09.",
+      "url": "https://www.ato.gov.au/individuals-and-families/investments-and-assets/capital-gains-tax/cgt-discount",
+      "retrievedAt": "2026-09-09"
+    }
+  },
+  "agedCare": {
+    "arrangement": {
+      "value": "1 November 2025",
+      "status": "sourced",
+      "source": "My Aged Care - Aged care home costs and fees. Two fee regimes coexist: the 1 July 2014 arrangements for people already in care, and the 1 November 2025 arrangements for new entrants. Anyone entering care from a plan starting in 2026 falls under the 1 November 2025 arrangements, which is what is modelled.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "basicDailyFeePerDay": {
+      "value": 66.8,
+      "status": "sourced",
+      "source": "My Aged Care - 'The basic daily fee is set at 85% of the single person rate of the basic age pension... the maximum basic daily fee is $66.80 per day, or $24,382 per year.' Indexed 20 March and 20 September. Cross-check: 85% of the $1,100.30 fortnightly basic rate divided by 14 is $66.80.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "basicDailyFeeShareOfBasicPension": {
+      "value": 0.85,
+      "status": "sourced",
+      "source": "My Aged Care - 'The basic daily fee is set at 85% of the single person rate of the basic age pension.'",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "hotellingContributionMaxPerDay": {
+      "value": 22.15,
+      "status": "sourced",
+      "source": "My Aged Care - hotelling contribution, means tested, 'up to a limit of the hotelling supplement, $22.15 per day'.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "nonClinicalCareContributionMaxPerDay": {
+      "value": 107.32,
+      "status": "sourced",
+      "source": "My Aged Care - non-clinical care contribution (1 November 2025 arrangements), 'capped daily at $107.32 per day'.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "nonClinicalCareLifetimeCap": {
+      "value": 137917.01,
+      "status": "sourced",
+      "source": "My Aged Care - 'residents no longer have to pay the non-clinical care contribution once they reach $137,917.01 (indexed) in total contributions, or after 4 years of cumulative contributions - whichever comes first'.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "nonClinicalCareMaxYears": {
+      "value": 4,
+      "status": "sourced",
+      "source": "My Aged Care - the four-year cumulative cap on the non-clinical care contribution.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "meansTestedCareFee2014Arrangements": {
+      "value": {
+        "maxPerDay": 372.03,
+        "annualCap": 35910.43,
+        "lifetimeCap": 86185.23
+      },
+      "status": "sourced",
+      "source": "My Aged Care - 1 July 2014 arrangements, retained for reference only. Not applied by the engine, which models the 1 November 2025 arrangements.",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "fullGovernmentAccommodationSupportThresholds": {
+      "value": {
+        "income": 35521.2,
+        "assets": 64500.0
+      },
+      "status": "sourced",
+      "source": "My Aged Care - 'If you have income below $35,521.20 and assets below $64,500.00, the Australian Government will pay your full accommodation costs.'",
+      "url": "https://www.myagedcare.gov.au/aged-care-home-costs-and-fees",
+      "retrievedAt": "2026-09-09"
+    },
+    "maximumPermissibleInterestRate": {
+      "value": null,
+      "status": "unsourced",
+      "source": "NOT FETCHED. The MPIR converts an agreed room price (RAD) into a daily accommodation payment. The Department's MPIR page and PDF both 404'd on 2026-09-09. The engine therefore takes the annual accommodation cost as a direct user input rather than deriving it from a room price at an unsourced rate.",
+      "url": "https://www.health.gov.au/resources/publications/base-interest-rate-bir-and-maximum-permissible-interest-rate-mpir-for-residential-aged-care",
+      "retrievedAt": null
+    }
+  },
+  "privateHealthInsurance": {
+    "premiumGrowthRate": {
+      "value": 0.0345,
+      "status": "sourced",
+      "source": "Department of Health, Disability and Ageing - average annual price changes in private health insurance premiums, industry average, mean of the ten years 1 April 2017 to 1 April 2026. See data/au-phi-premium-changes.json for the full series. Every one of those years exceeded the 2.5% CPI assumption.",
+      "url": "https://www.health.gov.au/resources/publications/average-annual-price-changes-in-private-health-insurance-premiums",
+      "retrievedAt": "2026-09-09"
+    },
+    "latestApprovedIncrease": {
+      "value": 0.0441,
+      "status": "sourced",
+      "source": "Department of Health, Disability and Ageing - average premium increase approved from 1 April 2026.",
+      "url": "https://www.health.gov.au/resources/publications/average-annual-price-changes-in-private-health-insurance-premiums",
+      "retrievedAt": "2026-09-09"
+    }
+  },
+  "asfaRetirementStandard": {
+    "value": null,
+    "status": "unsourced",
+    "source": "NOT FETCHED. superannuation.asn.au returned HTTP 403 to automated requests on 2026-09-09. The ASFA modest/comfortable benchmarks are a convenience for picking a starting spend and nothing in the engine depends on them.",
+    "url": "https://www.superannuation.asn.au/resources/retirement-standard/",
+    "retrievedAt": null
+  }
+}

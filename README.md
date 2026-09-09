@@ -1,0 +1,220 @@
+# Retirement model
+
+Personal retirement modelling for an Australian household. Replaces a spreadsheet.
+
+**This is Phase 4 of the build plan: uncertainty and decisions.** It answers the question the plan opens with — *if I stop full-time work at
+age X, spending Y, will the money last, and how confident can I be?* — with Australian
+tax, super and Age Pension rules, an age-shaped health cost curve, an aged care stress
+test, Monte Carlo simulation over correlated returns and sampled lifespans, four drawdown
+strategies, and solvers for both the maximum sustainable spend and the earliest
+retirement age. The app lists what is missing on every screen.
+
+## Your details stay yours
+
+The app ships with **illustrative example figures** — a made-up household, not anyone's
+real finances. Edit any field and it becomes yours.
+
+Whatever you enter is saved in **your own browser** (`localStorage`) and nowhere else.
+There is no account, no database and no server to send it to: the projection, the Monte
+Carlo and the solvers all run in your browser tab. The deployed site is static.
+
+- **Export** writes your scenario to a JSON file you keep
+- **Import** reads one back, on any browser or device
+- **Reset to example** clears the browser copy and returns to the illustrative figures
+
+Because it is browser-local, clearing site data or switching browser starts from the
+example again. Export is the backup.
+
+## Run it
+
+```bash
+npm install
+npm run dev
+```
+
+Then open http://localhost:3000. Edit any input on the left; the projection re-runs
+immediately. `npm run build` produces a production build.
+
+## Test it
+
+```bash
+npm test        # engine unit + regression tests
+npm run typecheck
+```
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `packages/engine` | The product. A pure, framework-free TypeScript projection engine with no UI or I/O in it. |
+| `apps/web` | Next.js App Router UI. Loads the ruleset server-side, runs the engine in the browser. |
+| `rules/au-2026-07.json` | Dated Australian regulatory parameters. Every value carries its source URL, effective date and retrieval date. |
+| `data/` | Public datasets, each with source URL, retrieval date and a written note on how it was transformed. |
+| `docs/` | Your own planning spec, if you keep one here. Gitignored — it is a personal document. |
+
+## Rules and provenance
+
+Regulatory values are **never** written from memory — they change on 1 July each year.
+Every leaf in `rules/*.json` carries a `status`:
+
+- `sourced` — fetched from the primary source, with a URL and retrieval date.
+- `assumed` — a modelling assumption, surfaced in the UI with an `assumed` badge.
+- `unsourced` — a placeholder the engine refuses to use. `assertUsable()` throws if the
+  engine depends on one.
+
+Everything in the file was fetched on 2026-09-09.
+
+From the **ATO**: super guarantee 12.00%, concessional cap $32,500, maximum contribution
+base $270,830, general transfer balance cap $2.1m, non-concessional cap $130,000,
+preservation age table, downsizer age 55 / cap $300,000, contributions tax 15%, fund
+earnings tax 15% (nil in retirement phase), minimum drawdown factors by age, resident tax
+brackets 2026-27, Medicare levy 2% and its low-income thresholds, LITO, SAPTO, CGT
+discount 50%.
+
+From **Services Australia**: Age Pension age 67, maximum rates ($1,200.90 a fortnight
+single), income test free areas and taper, assets test limits and cut-offs, deeming rates
+and thresholds, and the Work Bonus.
+
+**Age Pension rates change every 20 March and 20 September.** The rates here are those
+effective 20 March 2026. Re-fetch after each adjustment.
+
+To move to a new financial year, add `rules/au-2027-07.json` rather than editing the
+existing file, so old projections stay reproducible.
+
+## Datasets
+
+| File | What it is |
+|---|---|
+| `au-life-tables-2020-22.json` | Australian Government Actuary life tables, qx and life expectancy by age and sex, read straight from the published workbook. |
+| `au-health-cost-curve.json` | Per-person health spending by age. AIHW system spending by age band divided by ABS population in the same band, indexed against the all-ages average, with the level set by the AIHW's $1,634 average out-of-pocket spend. |
+| `au-phi-premium-changes.json` | Industry-average private health insurance premium changes, 1997–2026. Ten-year mean 3.45%, versus a 2.5% CPI assumption. |
+
+Two honest caveats on the health curve, both recorded in the data file itself: the life
+tables are **period** tables, so they ignore future mortality improvement and understate
+lifespan — the direction that makes money look like it lasts; and out-of-pocket spending
+is **assumed** to follow the same age shape as total system spending, which it does not
+exactly.
+
+## Uncertainty
+
+`monteCarlo()` runs the projection 5,000 times (about two seconds) with returns drawn from
+correlated normals and, optionally, lifespans sampled from the life tables. It reports a
+success probability, the distribution of failure ages, and percentile bands for the fan
+chart. Every run is seeded, so the same inputs always give the same answer — a probability
+that jitters between reloads invites re-rolling until you like the number.
+
+Two solvers bisect on that probability:
+
+- `maxSustainableSpend()` — the most you can spend at a chosen confidence level
+- `earliestRetirementAge()` — the earliest you can stop at a chosen confidence level
+
+Both search at a lower run count for speed and then **re-measure the answer at full run
+count**, reporting the verified probability rather than the noisy search one.
+
+The strongest check on the whole apparatus is a test: with volatility set to zero, Monte
+Carlo must reproduce the deterministic projection exactly, including the same run-out age
+and a fan with zero width.
+
+### Drawdown strategies
+
+`outsideSuperFirst` (default), `superFirst`, `proportional`, and `cashBuffer` — which
+holds N years of spending in cash and refills it in good years, the sequence-risk defence
+the build plan asks for. A glide path can shift super toward defensive options with age.
+
+## What Phase 4 does not model
+
+The engine returns these in `notModelled` and the UI shows them in an open panel:
+
+- **Historical return sequences.** The build plan asks for replays of real Australian and
+  global sequences ("retiring in 1973"). The replay *mechanism* is built and tested, but
+  **no sequences are shipped**: the RBA renumbered its statistical tables and the
+  share-market series could not be located on 2026-09-09. A plausible-looking invented
+  series would defeat the purpose, since the point of a historical stress test is that the
+  returns actually happened. `SHIPPED_SEQUENCES` is deliberately empty and a test asserts
+  it. A `-30%` crash-in-year-one test ships instead, because that is a "what if" rather
+  than a "what was".
+- Volatilities and correlations are **assumed**, not estimated from data — the build plan
+  permits a documented default matrix, and `DEFAULT_CORRELATIONS` is it. They drive the
+  tails more than the median
+- Aged care as a *probability-weighted* cost — it is a deterministic stress test you switch
+  on, not a likelihood by age
+- Home care packages and the Support at Home program; only residential care is costed
+- The ASFA Retirement Standard benchmarks — superannuation.asn.au returns HTTP 403 to
+  automated requests, so they could not be sourced
+- Transfer of unused SAPTO between spouses
+- Reversionary pension mechanics — a death benefit hits the survivor's transfer balance cap
+  immediately here, not after the 12-month delay that really applies
+- Households of more than two people, and re-partnering
+- Franking credits, which would reduce the tax shown
+- Investment property, rental income, and asset sales other than the downsize
+- Division 296 (the extra 15% above $3m) — not reached on this plan
+- Death-benefit tax on super paid to non-dependants
+- Phased spending, health-cost curves, aged care (Phase 3)
+- Monte Carlo, life tables, sequence-of-returns risk (Phase 4)
+
+## Two modelling choices that move the answer
+
+Both are exposed as `Assumptions` flags, and both are judgement calls rather than facts:
+
+1. **`indexation`** — three separate switches, because they are different kinds of claim.
+   Age Pension rates and super caps really are indexed in legislation, so turning those off
+   models something that does not happen. Personal tax brackets are **not** indexed in law;
+   indexing them assumes governments keep the scale roughly steady in real terms, and not
+   indexing them models fifty years of unbroken bracket creep.
+
+   Measured on the base case (deterministic run-out age, and success probability over 1,500
+   Monte Carlo paths):
+
+   | | Runs out | Success |
+   |---|---|---|
+   | All indexed (the default) | 86 | 28.0% |
+   | Tax brackets **not** indexed | 82 | 24.1% |
+   | Age Pension **not** indexed | 76 | 17.7% |
+   | Nothing indexed | 76 | 16.5% |
+
+   So the bracket decision is worth about **four years**, and Age Pension indexation about
+   **ten** — but only the first is actually a choice.
+2. **Pre-retirement salary tax.** While working, the household is modelled by its net
+   savings rate, so tax on salary is already inside that figure. Only the *incremental*
+   tax caused by investment income is charged against the portfolio, at the marginal rate
+   that income actually attracts.
+3. **Death is an input, not an inference.** Modelling a first death means choosing when.
+   Rather than invent a date, it is an explicit scenario event (`kind: 'death'`), default
+   off. Phase 4 replaces it with sampling from life tables.
+4. **Health and aged care are separate spending lines, not part of the baseline.** Real
+   spending falls through retirement (100% / 85% / 75%) while health costs climb with age.
+   Folding them together would hide both movements. They only apply from retirement — before
+   then the household is modelled by its net savings rate, and recurring living costs are
+   already inside that figure.
+5. **Sex is not guessed.** It drives which life table applies and is left unset by default;
+   the longevity panel simply does not appear until it is chosen. Life expectancy at 65
+   differs by 2.6 years between the two tables.
+
+## How couples are assessed
+
+The split matters and is easy to get wrong:
+
+| | Assessed |
+|---|---|
+| Age Pension income & assets tests | **Combined**, against couple thresholds |
+| Age Pension payment | **Separately** — each partner bears *half* the reduction |
+| Income tax | **Separately**, each on their own income |
+| Super | **Separately** — own preservation age, own cap, own pension phase |
+
+The halving is load-bearing. The $3 per $1,000 assets taper exhausts a couple's *combined*
+rate exactly at the published couple cut-off, so an individual partner tapers at $1.50 —
+which is also why a couple with only one partner of pension age still cuts out at the full
+couple asset limit rather than half of it. Both published cut-offs are pinned by tests.
+
+## A note on module resolution
+
+The engine's internal imports are extensionless (`from './rules'`). Turbopack cannot
+resolve the `.js`-suffixed specifiers that Node's own ESM loader requires, and the engine
+ships as source so the tests and the browser share one copy. Vitest and Turbopack both
+handle extensionless imports; plain `node --experimental-strip-types` does not. If the
+engine ever needs to run under bare Node, add a build step rather than reintroducing the
+suffixes.
+
+---
+
+General information only. Not personal financial advice.

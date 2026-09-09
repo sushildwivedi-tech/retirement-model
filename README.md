@@ -29,15 +29,16 @@ untaxed. Two consequences the model gets right and that are easy to get wrong:
 
 ### Offset, or invest?
 
-A panel answers this by running the household **both ways through the full model** — tax,
-Age Pension and all — rather than with a rule of thumb. It shows the arithmetic alongside
-(the loan rate, tax-free and certain, against the expected return after tax at your
-marginal rate) but the verdict comes from the projection.
+This is two rows in the levers table, evaluated by running the household **both ways
+through the full model** — tax, Age Pension and all — rather than with a rule of thumb.
+Each row carries the arithmetic (the loan rate, tax-free and certain, against the expected
+return after tax at your marginal rate) and what the projection found.
 
-The useful measures are **interest paid** and **when the loan clears**; the age your money
-runs out is blunt, because a mortgage of any size moves it either way. On the shipped
-example a $50,000 offset saves about $33,000 of interest and clears the loan five years
-earlier.
+Those rows report their difference in **dollars of interest**, not years. Moving money
+between an offset and investments barely shifts the year the money runs out — a mortgage
+of any size moves it either way — so a years column would read "no change" and bury a real
+saving. On the shipped example, moving $150,000 into the offset saves $22,675 of interest
+and clears the loan five years sooner.
 
 ## Where each number comes from
 
@@ -92,8 +93,9 @@ example again. Export is the backup.
 ## Two pages
 
 **When can you retire?** (`/`) leads with the answer: the earliest age at which the money
-lasts the whole plan, how far that is from the age you were planning on, and a table of
-changes that would move it. Then a confidence check, which runs the simulations.
+lasts the whole plan, and how far that is from the age you were planning on. Then the
+simulations, which put a probability on it. Then the levers — a table of changes and what
+each one is worth.
 
 That headline is **deterministic on purpose**. It is a binary search over a handful of
 projections, each well under a millisecond, so it updates while you type — the Monte Carlo

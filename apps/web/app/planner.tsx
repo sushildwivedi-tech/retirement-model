@@ -334,66 +334,19 @@ export default function Planner({
     }, 20);
   };
 
-  // --- Offset or invest? ------------------------------------------------------------
-  // A question the model can actually settle, rather than answer with a rule of thumb:
-  // run the household both ways and compare. The arithmetic alongside is the intuition.
-  const offsetAdvice = useMemo(() => {
-    if (!form.hasMortgage || form.mortgageBalance <= 0) return null;
-    const phi = { phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value };
-    const ds = { lifeTables, healthCostCurve };
-
-    // Marginal rate on the next dollar of investment income, including Medicare.
-    const step = 100;
-    const base = personalIncomeTax(form.salary, ruleset).payable;
-    const stepped = personalIncomeTax(form.salary + step, ruleset).payable;
-    const marginal = Math.max(0, (stepped - base) / step);
-
-    // The offset saves the loan rate, untaxed. Investing earns the expected return, of
-    // which the income share is taxed each year and the growth share only on realisation.
-    const yieldShare = form.investmentIncomeYield;
-    const growthShare = Math.max(0, form.returnInvestments - yieldShare);
-    const cgt = ruleset.capitalGains.discountRate.value;
-    const afterTaxInvest =
-      yieldShare * (1 - marginal) + growthShare * (1 - marginal * (1 - cgt));
-
-    const moveToInvestments = compareScenarios(
-      toScenario(form, phi),
-      [
-        {
-          label: 'Move the offset into investments',
-          scenario: toScenario(
-            { ...form, offsetBalance: 0, investments: form.investments + form.offsetBalance },
-            phi,
-          ),
-        },
-        {
-          label: 'Move investments into the offset',
-          scenario: toScenario(
-            { ...form, offsetBalance: form.offsetBalance + form.investments, investments: 0 },
-            phi,
-          ),
-        },
-      ],
-      ruleset,
-      ds,
-    );
-    return {
-      marginal,
-      afterTaxInvest,
-      loanRate: form.mortgageRate,
-      baseline: moveToInvestments.baseline,
-      toInvestments: moveToInvestments.outcomes[0],
-      toOffset: moveToInvestments.outcomes[1],
-      hasOffset: form.offsetBalance > 0,
-      hasInvestments: form.investments > 0,
-    };
-  }, [form, ruleset, lifeTables, healthCostCurve]);
-
   // --- Planning levers -------------------------------------------------------------
   // Each is a concrete change to the plan, evaluated deterministically. One projection
   // is well under a millisecond, so the whole table recomputes on every edit.
   const levers = useMemo(() => {
     const phi = { phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value };
+    // Marginal rate on the next dollar of investment income, including the Medicare levy.
+    const step = 100;
+    const marginalRate = Math.max(
+      0,
+      (personalIncomeTax(form.salary + step, ruleset).payable -
+        personalIncomeTax(form.salary, ruleset).payable) /
+        step,
+    );
     const candidates: Array<{ label: string; detail: string; change: Partial<FormInputs> }> = [
       {
         label: 'Work two more years',
@@ -446,6 +399,41 @@ export default function Planner({
         change: { glidePath: true },
       },
     ];
+    // Offset versus invest. The loan rate is earned tax-free and with certainty; an
+    // investment return is neither. The arithmetic goes in the row text, and the model
+    // settles the outcome.
+    if (form.hasMortgage && form.mortgageBalance > 0) {
+      const marginal = marginalRate;
+      const afterTaxInvest =
+        form.investmentIncomeYield * (1 - marginal) +
+        Math.max(0, form.returnInvestments - form.investmentIncomeYield) *
+          (1 - marginal * (1 - ruleset.capitalGains.discountRate.value));
+      const rates =
+        `Your loan costs ${(form.mortgageRate * 100).toFixed(2)}% tax-free and certain; ` +
+        `investing returns about ${(afterTaxInvest * 100).toFixed(2)}% after tax at your ` +
+        `${(marginal * 100).toFixed(0)}% marginal rate, and is not certain.`;
+      if (form.offsetBalance > 0) {
+        candidates.push({
+          label: `Move the ${money(form.offsetBalance)} offset into investments`,
+          detail: rates,
+          change: {
+            offsetBalance: 0,
+            investments: form.investments + form.offsetBalance,
+          },
+        });
+      }
+      if (form.investments > 0) {
+        candidates.push({
+          label: `Move ${money(form.investments)} of investments into the offset`,
+          detail: rates,
+          change: {
+            offsetBalance: form.offsetBalance + form.investments,
+            investments: 0,
+          },
+        });
+      }
+    }
+
     const downsizerAge = ruleset.super.downsizerContribution.minimumAge.value;
     const downsizerCap = ruleset.super.downsizerContribution.capPerPerson.value;
     if (!form.downsize && form.primaryResidence > 0) {
@@ -504,7 +492,44 @@ export default function Planner({
       { lifeTables, healthCostCurve },
     );
     return candidates
-      .map((c, i) => ({ ...c, outcome: compared.outcomes[i] }))
+      .map((c, i) => {
+        const outcome = compared.outcomes[i];
+        // The run-out age barely separates offset choices - a mortgage of any size moves
+        // it either way - so say what actually differs: interest paid and payoff year.
+        const isOffsetMove = /offset/i.test(c.label);
+        if (!isOffsetMove) return { ...c, outcome, differenceOverride: undefined as string | undefined };
+        const interestDelta = outcome.mortgageInterestPaid - compared.baseline.mortgageInterestPaid;
+        const yearsDelta =
+          outcome.mortgagePaidOffAge !== null && compared.baseline.mortgagePaidOffAge !== null
+            ? outcome.mortgagePaidOffAge - compared.baseline.mortgagePaidOffAge
+            : null;
+        const parts: string[] = [];
+        if (Math.abs(interestDelta) >= 1) {
+          parts.push(
+            interestDelta > 0
+              ? `Costs ${money(interestDelta)} more interest`
+              : `Saves ${money(-interestDelta)} of interest`,
+          );
+        }
+        if (yearsDelta !== null && yearsDelta !== 0) {
+          parts.push(
+            yearsDelta > 0
+              ? `clears the loan ${yearsDelta} ${yearsDelta === 1 ? 'year' : 'years'} later`
+              : `clears it ${-yearsDelta} ${-yearsDelta === 1 ? 'year' : 'years'} sooner`,
+          );
+        }
+        const found = parts.length > 0 ? `${parts.join(' and ')}. ` : '';
+        // Moving money between the offset and investments barely shifts the year the money
+        // runs out, so the years column would read "no change" and bury a real saving. Let
+        // these rows report their difference in the unit that actually applies.
+        const differenceOverride: string | undefined =
+          (outcome.deltaYears === 0 || outcome.deltaYears === null) && Math.abs(interestDelta) >= 1
+            ? interestDelta < 0
+              ? `${money(-interestDelta)} less interest`
+              : `${money(interestDelta)} more interest`
+            : undefined;
+        return { ...c, detail: found + c.detail, outcome, differenceOverride };
+      })
       .sort((a, b) => {
         // Anything that removes the failure outright ranks above anything that only
         // delays it; among those, more left at the end means more margin. Note this
@@ -1091,207 +1116,6 @@ export default function Planner({
 
           {view === 'answer' && (
             <>
-            {offsetAdvice && (
-              <div className="rounded-lg border border-indigo-200 bg-white p-4">
-                <div className="mb-1 flex items-baseline justify-between">
-                  <h2 className="font-semibold">Offset, or invest?</h2>
-                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
-                    calculated
-                  </span>
-                </div>
-                <p className="mb-3 text-xs text-slate-600">
-                  A dollar in the offset earns you the loan rate — and does so untaxed, because
-                  interest you never incurred cannot be taxed. A dollar invested earns more on
-                  paper, but you pay tax on the income each year and CGT on the growth when you
-                  sell. Here is the comparison both ways.
-                </p>
-
-                <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded border border-sky-200 bg-sky-50 p-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-600">
-                      Offset returns
-                    </div>
-                    <div className="text-2xl font-semibold tabular-nums">
-                      {(offsetAdvice.loanRate * 100).toFixed(2)}%
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      tax-free and certain — it is simply interest you do not pay
-                    </div>
-                  </div>
-                  <div className="rounded border border-amber-200 bg-amber-50 p-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-600">
-                      Investing returns, after tax
-                    </div>
-                    <div className="text-2xl font-semibold tabular-nums">
-                      ~{(offsetAdvice.afterTaxInvest * 100).toFixed(2)}%
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      from {(form.returnInvestments * 100).toFixed(2)}% expected, at your{' '}
-                      {(offsetAdvice.marginal * 100).toFixed(0)}% marginal rate — and not certain
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-xs uppercase text-slate-600">
-                      <tr>
-                        <th className="px-2 py-1 text-left font-medium">Choice</th>
-                        <th className="px-2 py-1 text-right font-medium">Interest paid</th>
-                        <th className="px-2 py-1 text-right font-medium">Loan cleared</th>
-                        <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { label: 'Leave things as they are', o: offsetAdvice.baseline, show: true },
-                        {
-                          label: `Move the ${money(form.offsetBalance)} offset into investments`,
-                          o: offsetAdvice.toInvestments,
-                          show: offsetAdvice.hasOffset,
-                        },
-                        {
-                          label: `Move ${money(form.investments)} of investments into the offset`,
-                          o: offsetAdvice.toOffset,
-                          show: offsetAdvice.hasInvestments,
-                        },
-                      ]
-                        .filter((row) => row.show)
-                        .map((row) => (
-                          <tr key={row.label} className="border-t border-slate-100">
-                            <td className="px-2 py-2 text-slate-800">{row.label}</td>
-                            <td className="px-2 py-2 text-right tabular-nums">
-                              {money(row.o.mortgageInterestPaid)}
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums">
-                              {row.o.mortgagePaidOffAge === null
-                                ? 'not cleared'
-                                : `age ${row.o.mortgagePaidOffAge}`}
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums">
-                              {row.o.runsOutAge === null ? 'never runs out' : `age ${row.o.runsOutAge}`}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-                {r.mortgagePaidOffAge !== null &&
-                  r.moneyRunsOutAge !== null &&
-                  r.moneyRunsOutAge < r.mortgagePaidOffAge && (
-                    <p className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-800">
-                      Your money runs out at {r.moneyRunsOutAge}, before the loan is cleared at{' '}
-                      {r.mortgagePaidOffAge}. The projection keeps charging the repayment because
-                      the lender would — but in reality you would be unable to make it. Carrying
-                      this loan into retirement is the problem to solve first; where the offset
-                      money sits is a second-order question next to it.
-                    </p>
-                  )}
-                <p className="mt-2 text-xs text-slate-600">
-                  Interest paid and the year the loan clears are what actually separate these
-                  choices. The age your money runs out is a blunter measure — a mortgage this
-                  size moves it either way, so it can look identical across all three.
-                </p>
-
-                <p className="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-700">
-                  <span className="font-medium">The catch the numbers do not show:</span> the
-                  offset return is certain and the investment return is not. Two rates a
-                  fraction apart are not equivalent when one of them can be negative for a
-                  decade. The offset also does nothing once the loan is gone
-                  {r.mortgagePaidOffAge !== null ? ` — here, at ${r.mortgagePaidOffAge}` : ''}, at
-                  which point the money is better off invested. This is general information,
-                  not financial advice.
-                </p>
-              </div>
-            )}
-
-            <div className="rounded-lg border border-indigo-200 bg-white p-4">
-              <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="font-semibold">What would move the needle</h2>
-                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
-                  calculated
-                </span>
-              </div>
-              <p className="mb-3 text-xs text-slate-600">
-                Each row re-runs the whole projection with one change, against your current plan
-                {r.moneyRunsOutAge === null
-                  ? ', which already lasts the full plan.'
-                  : `, which runs out at ${r.moneyRunsOutAge}.`}{' '}
-                Best first. Apply takes the change into your inputs.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="px-2 py-1 text-left font-medium">Change</th>
-                      <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
-                      <th className="px-2 py-1 text-right font-medium">Difference</th>
-                      <th className="px-2 py-1 text-right font-medium">
-                        Savings left at {form.planToAge}
-                      </th>
-                      <th className="px-2 py-1" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {levers.map((l) => {
-                      const o = l.outcome;
-                      const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
-                      return (
-                        <tr key={l.label} className="border-t border-slate-100 align-top">
-                          <td className="px-2 py-2">
-                            <div className="font-medium text-slate-800">{l.label}</div>
-                            <div className="text-xs text-slate-600">{l.detail}</div>
-                          </td>
-                          <td className="px-2 py-2 text-right tabular-nums">
-                            {o.runsOutAge === null ? (
-                              <span className="font-medium text-emerald-700">never runs out</span>
-                            ) : (
-                              `age ${o.runsOutAge}`
-                            )}
-                          </td>
-                          <td
-                            className={`px-2 py-2 text-right font-medium tabular-nums ${
-                              better ? 'text-emerald-700' : (o.deltaYears ?? 0) < 0 ? 'text-red-700' : 'text-slate-400'
-                            }`}
-                          >
-                            {o.fixesIt
-                              ? 'fixes it'
-                              : o.deltaYears === null
-                                ? '—'
-                                : o.deltaYears > 0
-                                  ? `+${o.deltaYears} yrs`
-                                  : o.deltaYears === 0
-                                    ? 'no change'
-                                    : `${o.deltaYears} yrs`}
-                          </td>
-                          <td className="px-2 py-2 text-right tabular-nums text-slate-600">
-                            {money(o.liquidEstateReal)}
-                          </td>
-                          <td className="px-2 py-2 text-right">
-                            <button
-                              onClick={() => {
-                                setForm((f) => ({ ...f, ...l.change }));
-                                clearResults();
-                              }}
-                              className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
-                            >
-                              Apply
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                Ranked by outcome, not by what the change costs you — working five more years
-                and spending $10,000 less are not equivalent sacrifices, and only you can weigh
-                them. These are also single deterministic paths, so they compare like with like
-                but say nothing about risk; run the simulations below for that.
-              </p>
-            </div>
-
             <div className="rounded-lg border border-indigo-200 bg-white p-4">
               <div className="mb-3 flex flex-wrap items-center gap-3">
                 <h2 className="font-semibold">How confident can you be?</h2>
@@ -1413,6 +1237,103 @@ export default function Planner({
                   outcomes and a probability of success.
                 </p>
               )}
+            </div>
+
+            <div className="rounded-lg border border-indigo-200 bg-white p-4">
+              <div className="mb-1 flex items-baseline justify-between">
+                <h2 className="font-semibold">What would move the needle</h2>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                  calculated
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-slate-600">
+                Each row re-runs the whole projection with one change, against your current plan
+                {r.moneyRunsOutAge === null
+                  ? ', which already lasts the full plan.'
+                  : `, which runs out at ${r.moneyRunsOutAge}.`}{' '}
+                Best first. Apply takes the change into your inputs.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-medium">Change</th>
+                      <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
+                      <th className="px-2 py-1 text-right font-medium">Difference</th>
+                      <th className="px-2 py-1 text-right font-medium">
+                        Savings left at {form.planToAge}
+                      </th>
+                      <th className="px-2 py-1" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {levers.map((l) => {
+                      const o = l.outcome;
+                      const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
+                      return (
+                        <tr key={l.label} className="border-t border-slate-100 align-top">
+                          <td className="px-2 py-2">
+                            <div className="font-medium text-slate-800">{l.label}</div>
+                            <div className="text-xs text-slate-600">{l.detail}</div>
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums">
+                            {o.runsOutAge === null ? (
+                              <span className="font-medium text-emerald-700">never runs out</span>
+                            ) : (
+                              `age ${o.runsOutAge}`
+                            )}
+                          </td>
+                          <td
+                            className={`px-2 py-2 text-right font-medium tabular-nums ${
+                              l.differenceOverride
+                                ? l.differenceOverride.includes('less')
+                                  ? 'text-emerald-700'
+                                  : 'text-red-700'
+                                : better
+                                  ? 'text-emerald-700'
+                                  : (o.deltaYears ?? 0) < 0
+                                    ? 'text-red-700'
+                                    : 'text-slate-400'
+                            }`}
+                          >
+                            {l.differenceOverride
+                              ? l.differenceOverride
+                              : o.fixesIt
+                              ? 'fixes it'
+                              : o.deltaYears === null
+                                ? '—'
+                                : o.deltaYears > 0
+                                  ? `+${o.deltaYears} yrs`
+                                  : o.deltaYears === 0
+                                    ? 'no change'
+                                    : `${o.deltaYears} yrs`}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums text-slate-600">
+                            {money(o.liquidEstateReal)}
+                          </td>
+                          <td className="px-2 py-2 text-right">
+                            <button
+                              onClick={() => {
+                                setForm((f) => ({ ...f, ...l.change }));
+                                clearResults();
+                              }}
+                              className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                            >
+                              Apply
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Ranked by outcome, not by what the change costs you — working five more years
+                and spending $10,000 less are not equivalent sacrifices, and only you can weigh
+                them. These are also single deterministic paths, so they compare like with like
+                but say nothing about risk; run the simulations below for that.
+              </p>
             </div>
 
             </>

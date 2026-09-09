@@ -24,6 +24,7 @@ export type {
   GoalSeekOptions,
   GoalSeekResult,
   DeterministicRetirementAge,
+  RetirementAgeForPerson,
 } from './goalseek';
 export {
   runHistoricalSequence,

@@ -93,7 +93,11 @@ example again. Export is the backup.
 ## Two pages
 
 **When can you retire?** (`/`) leads with the answer: the earliest age at which the money
-lasts the whole plan, and how far that is from the age you were planning on. Then the
+lasts the whole plan, and how far that is from the age you were planning on. A couple gets
+**both ages** — two people of different ages who stop work together do not stop at the same
+age, so one number cannot describe them. The search shifts both retirements by the same
+number of years, which preserves whatever gap the household planned: if one intends to go
+three years before the other, they still do. Then the
 simulations, which put a probability on it. Then the levers — a table of changes and what
 each one is worth.
 

@@ -32,38 +32,84 @@ const withSpend = (s: Scenario, spend: number): Scenario => ({
   household: { ...s.household, retirementSpending: spend },
 });
 
-const withRetirementAge = (s: Scenario, age: number): Scenario => ({
-  ...s,
-  household: {
-    ...s.household,
-    people: s.household.people.map((p) => ({ ...p, retirementAge: age })),
-  },
-  events: s.events.map((e) =>
-    e.kind === 'downsize' && e.atAge < age ? { ...e, atAge: age } : e,
-  ),
+/**
+ * Shift everyone's retirement by the same number of YEARS, not to the same age.
+ *
+ * For one person the two are equivalent. For a couple they are not: setting both to
+ * retire "at 55" retires a 42-year-old and a 40-year-old two years apart in calendar
+ * time, which is not what anyone means by stopping together. Shifting by years preserves
+ * whatever gap the household actually planned - one partner going earlier than the other
+ * stays that way - and answers the question a couple is really asking, which is "how much
+ * longer do we both have to work?".
+ *
+ * A negative delay brings retirement forward, so the same search answers "could we stop
+ * sooner?" as well as "must we work longer?". Nobody can retire before today, so each
+ * person's age is floored at their current age.
+ */
+const withRetirementDelay = (s: Scenario, years: number): Scenario => {
+  const people = s.household.people.map((p) => ({
+    ...p,
+    retirementAge: Math.max(p.currentAge, p.retirementAge + years),
+  }));
+  const byId = new Map(people.map((p) => [p.id, p.retirementAge]));
+  return {
+    ...s,
+    household: { ...s.household, people },
+    // A downsize scheduled for the old retirement date moves with it, rather than
+    // landing years before or after the household actually stops work.
+    events: s.events.map((e) => {
+      if (e.kind !== 'downsize') return e;
+      const retireAt = byId.get(e.personId);
+      return retireAt !== undefined && e.atAge < retireAt ? { ...e, atAge: retireAt } : e;
+    }),
+  };
+};
+
+/** The range of delays worth searching: not before today, not past the end of the plan. */
+const delayRange = (s: Scenario): { min: number; max: number } => ({
+  min: Math.min(...s.household.people.map((p) => p.currentAge - p.retirementAge)),
+  max: Math.max(...s.household.people.map((p) => s.assumptions.planToAge - p.retirementAge)),
 });
 
-export interface DeterministicRetirementAge {
-  /** Earliest age the money lasts the whole plan on the central return path. */
-  age: number | null;
-  /** The age currently planned, for comparison. */
+export interface RetirementAgeForPerson {
+  personId: string;
+  name: string;
+  /** Age this person stops work in the earliest workable plan. */
+  age: number;
+  /** Age they were planning to stop. */
   plannedAge: number;
-  /** How many years earlier (negative) or later (positive) than the current plan. */
+}
+
+export interface DeterministicRetirementAge {
+  /**
+   * Earliest workable retirement age for the FIRST person. `people` carries one entry
+   * each, which is what a couple needs - a single age cannot describe two people of
+   * different ages stopping at the same time.
+   */
+  age: number | null;
+  people: RetirementAgeForPerson[];
+  /** The first person's planned age, for comparison. */
+  plannedAge: number;
+  /** Years later (positive) or earlier (negative) than the current plan, for everyone. */
   yearsFromPlan: number | null;
-  /** True when the currently planned age already works. */
+  /** True when the ages currently planned already work. */
   plannedAgeWorks: boolean;
 }
 
 /**
- * The earliest retirement age that lasts the whole plan on the central return path.
+ * The earliest the household can stop work and still have the money last the whole plan,
+ * on the central return path.
  *
- * Deterministic, so it is instant - a binary search over about six projections, each
- * well under a millisecond. That is what makes it usable as a headline that updates
- * while you type, where the Monte Carlo version takes seconds.
+ * Deterministic, so it is instant - a binary search over about six projections, each well
+ * under a millisecond. That is what makes it usable as a headline that updates while you
+ * type, where the Monte Carlo version takes seconds.
  *
  * It answers a different question from `earliestRetirementAge`, and a softer one: this is
  * "the age that works if returns behave", not "the age that works most of the time". The
  * probabilistic answer is always later, and the UI should say so.
+ *
+ * For a couple it shifts both retirements by the same number of years, preserving any gap
+ * they planned, and reports the age each of them reaches at that point.
  */
 export function earliestRetirementAgeDeterministic(
   scenario: Scenario,
@@ -72,22 +118,39 @@ export function earliestRetirementAgeDeterministic(
 ): DeterministicRetirementAge {
   const first = scenario.household.people[0];
   const plannedAge = first.retirementAge;
-  const lasts = (age: number) =>
-    project(withRetirementAge(scenario, age), ruleset, datasets).moneyRunsOutAge === null;
+  const lasts = (years: number) =>
+    project(withRetirementDelay(scenario, years), ruleset, datasets).moneyRunsOutAge === null;
 
-  const plannedAgeWorks = lasts(plannedAge);
-  let lo = first.currentAge;
-  let hi = scenario.assumptions.planToAge;
-  if (!lasts(hi)) {
-    return { age: null, plannedAge, yearsFromPlan: null, plannedAgeWorks };
+  const agesAt = (years: number): RetirementAgeForPerson[] =>
+    withRetirementDelay(scenario, years).household.people.map((p, i) => ({
+      personId: p.id,
+      name: p.name,
+      age: p.retirementAge,
+      plannedAge: scenario.household.people[i].retirementAge,
+    }));
+
+  const plannedAgeWorks = lasts(0);
+  const { min, max } = delayRange(scenario);
+  if (!lasts(max)) {
+    return { age: null, people: [], plannedAge, yearsFromPlan: null, plannedAgeWorks };
   }
-  // Success is monotonic in retirement age, so the first age that works is the answer.
+  // Success is monotonic in how long you keep working, so the first delay that works is
+  // the answer.
+  let lo = min;
+  let hi = max;
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2);
     if (lasts(mid)) hi = mid;
     else lo = mid + 1;
   }
-  return { age: lo, plannedAge, yearsFromPlan: lo - plannedAge, plannedAgeWorks };
+  const people = agesAt(lo);
+  return {
+    age: people[0].age,
+    people,
+    plannedAge,
+    yearsFromPlan: lo,
+    plannedAgeWorks,
+  };
 }
 
 /**
@@ -176,16 +239,17 @@ export function earliestRetirementAge(
   const notes: string[] = [];
 
   const first = scenario.household.people[0];
-  const from = first.currentAge;
   const to = scenario.assumptions.planToAge;
+  const { min, max } = delayRange(scenario);
 
-  const probability = (age: number, runs: number) =>
-    monteCarlo(withRetirementAge(scenario, age), ruleset, datasets, { ...options, runs })
+  const probability = (years: number, runs: number) =>
+    monteCarlo(withRetirementDelay(scenario, years), ruleset, datasets, { ...options, runs })
       .successProbability;
 
-  // Binary search over whole years.
-  let lo = from;
-  let hi = to;
+  // Binary search over whole years of delay, so a couple shifts together rather than
+  // both being forced to the same age.
+  let lo = min;
+  let hi = max;
   if (probability(hi, searchRuns) < confidence) {
     notes.push(
       `Even working to ${to} does not reach ${Math.round(confidence * 100)}% confidence at this ` +
@@ -200,8 +264,15 @@ export function earliestRetirementAge(
     if (probability(mid, searchRuns) >= confidence) hi = mid;
     else lo = mid + 1;
   }
+  const solved = withRetirementDelay(scenario, lo).household.people[0].retirementAge;
+  if (scenario.household.people.length > 1) {
+    const ages = withRetirementDelay(scenario, lo)
+      .household.people.map((p) => `${p.name} at ${p.retirementAge}`)
+      .join(', ');
+    notes.push(`Both stop together, ${lo === 0 ? 'as planned' : `${lo} years later than planned`}: ${ages}.`);
+  }
   return {
-    value: lo,
+    value: solved,
     achievedProbability: probability(lo, verifyRuns),
     confidence,
     searchRuns,

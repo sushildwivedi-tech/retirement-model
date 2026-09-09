@@ -964,9 +964,19 @@ export default function Planner({
                 On these numbers, spending {money(form.retirementSpending)} a year
               </div>
               <div className="mt-1 text-5xl font-semibold tracking-tight">
-                {canRetireAt.age === null
-                  ? 'No age works'
-                  : `You could retire at ${canRetireAt.age}`}
+                {canRetireAt.age === null ? (
+                  'No age works'
+                ) : canRetireAt.people.length === 1 ? (
+                  `You could retire at ${canRetireAt.age}`
+                ) : (
+                  // Two people of different ages retiring together do not retire at the
+                  // same age, so a couple gets both numbers rather than one.
+                  <>
+                    You could retire at {canRetireAt.people[0].age},
+                    <br />
+                    your partner at {canRetireAt.people[1].age}
+                  </>
+                )}
               </div>
               <p className="mt-2 max-w-2xl text-sm text-slate-700">
                 {canRetireAt.age === null ? (
@@ -976,21 +986,33 @@ export default function Planner({
                   </>
                 ) : canRetireAt.plannedAgeWorks ? (
                   <>
-                    You are planning to stop at {canRetireAt.plannedAge}, and that works — your
-                    money lasts to {form.planToAge}
-                    {canRetireAt.age < canRetireAt.plannedAge && (
-                      <> with {canRetireAt.plannedAge - canRetireAt.age} years to spare</>
+                    {canRetireAt.people.length === 1
+                      ? `You are planning to stop at ${canRetireAt.plannedAge}, and that works`
+                      : `You are planning to stop at ${canRetireAt.people
+                          .map((p) => p.plannedAge)
+                          .join(' and ')}, and that works`}{' '}
+                    — the money lasts to {form.planToAge}
+                    {canRetireAt.yearsFromPlan !== null && canRetireAt.yearsFromPlan < 0 && (
+                      <>
+                        , and you could go {-canRetireAt.yearsFromPlan}{' '}
+                        {-canRetireAt.yearsFromPlan === 1 ? 'year' : 'years'} sooner
+                      </>
                     )}
                     .
                   </>
                 ) : (
                   <>
-                    You are planning to stop at {canRetireAt.plannedAge}, which is{' '}
+                    {canRetireAt.people.length === 1
+                      ? `You are planning to stop at ${canRetireAt.plannedAge}, which is `
+                      : `You are planning to stop at ${canRetireAt.people
+                          .map((p) => p.plannedAge)
+                          .join(' and ')}, which is `}
                     <span className="font-medium">
                       {canRetireAt.yearsFromPlan} {canRetireAt.yearsFromPlan === 1 ? 'year' : 'years'}
                     </span>{' '}
-                    too early — on this plan the money runs out at {r.moneyRunsOutAge}. The table
-                    below shows what would close that gap.
+                    too early — on this plan the money runs out at {r.moneyRunsOutAge}.{' '}
+                    {canRetireAt.people.length > 1 && 'Both would need to work that much longer. '}
+                    The table below shows what would close that gap.
                   </>
                 )}
               </p>

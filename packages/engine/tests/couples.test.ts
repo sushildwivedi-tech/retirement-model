@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { agePension } from '../src/agePension';
 import { project } from '../src/engine';
+import {
+  earliestRetirementAge,
+  earliestRetirementAgeDeterministic,
+} from '../src/goalseek';
 import { loadRuleset, loadDataset } from '../src/loadRuleset';
 import type { HealthCostCurve, LifeTables } from '../src/types';
 import { baseCase } from '../src/fixtures/baseCase';
@@ -234,5 +238,142 @@ describe('death of the first partner', () => {
     const singleRate = ap.maxRateFortnight.value.single.total * FY;
     expect(after.agePensionDetail.maxRate).toBeCloseTo(singleRate * after.cpiIndex, 0);
     expect(before.agePensionDetail.maxRate).toBeCloseTo(COUPLE_COMBINED * before.cpiIndex, 0);
+  });
+});
+
+describe('when can a couple retire', () => {
+  const couple = (over: Partial<{ aRetire: number; bRetire: number; spend: number }> = {}): Scenario => ({
+    ...baseCase,
+    household: {
+      ...baseCase.household,
+      retirementSpending: over.spend ?? 95_000,
+      people: [
+        { ...baseCase.household.people[0], retirementAge: over.aRetire ?? 47 },
+        {
+          id: 'partner',
+          name: 'Partner',
+          dateOfBirth: '1986-01-01',
+          currentAge: 40,
+          retirementAge: over.bRetire ?? 50,
+          salary: 90_000,
+          wageGrowth: 0.035,
+          superBalance: 150_000,
+        },
+      ],
+    },
+  });
+
+  it('reports an age for each person, not one age for the household', () => {
+    const r = earliestRetirementAgeDeterministic(couple(), ruleset, datasets);
+    expect(r.people).toHaveLength(2);
+    expect(r.people.map((p) => p.personId)).toEqual(['you', 'partner']);
+    expect(r.people.every((p) => Number.isFinite(p.age))).toBe(true);
+  });
+
+  it('shifts both by the same number of years, so a planned gap survives', () => {
+    // The whole point: two people of different ages retiring "together" do not retire at
+    // the same age, and one planning to go earlier should still go earlier.
+    const r = earliestRetirementAgeDeterministic(couple({ aRetire: 47, bRetire: 50 }), ruleset, datasets);
+    const [a, b] = r.people;
+    expect(a.age - a.plannedAge).toBe(r.yearsFromPlan);
+    expect(b.age - b.plannedAge).toBe(r.yearsFromPlan);
+    expect(b.age - a.age).toBe(50 - 47);
+  });
+
+  it('does not force both to the same age', () => {
+    const r = earliestRetirementAgeDeterministic(couple({ aRetire: 47, bRetire: 55 }), ruleset, datasets);
+    const [a, b] = r.people;
+    expect(a.age).not.toBe(b.age);
+  });
+
+  it('never retires anyone before today', () => {
+    const easy = couple({ spend: 20_000 });
+    const r = earliestRetirementAgeDeterministic(easy, ruleset, datasets);
+    for (const p of r.people) {
+      const person = easy.household.people.find((x) => x.id === p.personId)!;
+      expect(p.age).toBeGreaterThanOrEqual(person.currentAge);
+    }
+  });
+
+  it('the reported ages actually work when fed back in', () => {
+    const sc = couple();
+    const r = earliestRetirementAgeDeterministic(sc, ruleset, datasets);
+    const applied: Scenario = {
+      ...sc,
+      household: {
+        ...sc.household,
+        people: sc.household.people.map((p) => ({
+          ...p,
+          retirementAge: r.people.find((x) => x.personId === p.id)!.age,
+        })),
+      },
+    };
+    expect(project(applied, ruleset, datasets).moneyRunsOutAge).toBeNull();
+  });
+
+  it('is still the earliest - a year sooner for both fails', () => {
+    const sc = couple();
+    const r = earliestRetirementAgeDeterministic(sc, ruleset, datasets);
+    const sooner: Scenario = {
+      ...sc,
+      household: {
+        ...sc.household,
+        people: sc.household.people.map((p) => ({
+          ...p,
+          retirementAge: r.people.find((x) => x.personId === p.id)!.age - 1,
+        })),
+      },
+    };
+    expect(project(sooner, ruleset, datasets).moneyRunsOutAge).not.toBeNull();
+  });
+
+  it('gives a single person exactly one entry', () => {
+    const r = earliestRetirementAgeDeterministic(baseCase, ruleset, datasets);
+    expect(r.people).toHaveLength(1);
+    expect(r.people[0].age).toBe(r.age);
+  });
+});
+
+describe('the probabilistic solver for a couple', () => {
+  it('names both ages in its notes, since one number cannot describe two people', () => {
+    const sc: Scenario = {
+      ...baseCase,
+      household: {
+        ...baseCase.household,
+        retirementSpending: 95_000,
+        people: [
+          baseCase.household.people[0],
+          {
+            id: 'partner',
+            name: 'Partner',
+            dateOfBirth: '1986-01-01',
+            currentAge: 40,
+            retirementAge: 50,
+            salary: 90_000,
+            wageGrowth: 0.035,
+            superBalance: 150_000,
+          },
+        ],
+      },
+    };
+    const r = earliestRetirementAge(sc, ruleset, datasets, {
+      confidence: 0.5,
+      searchRuns: 60,
+      runs: 80,
+      seed: 2,
+    });
+    expect(r.value).not.toBeNull();
+    expect(r.notes.join(' ')).toMatch(/Both stop together/);
+    expect(r.notes.join(' ')).toMatch(/You at \d+, Partner at \d+/);
+  });
+
+  it('says nothing extra for a single person', () => {
+    const r = earliestRetirementAge(baseCase, ruleset, datasets, {
+      confidence: 0.5,
+      searchRuns: 60,
+      runs: 80,
+      seed: 2,
+    });
+    expect(r.notes.join(' ')).not.toMatch(/Both stop together/);
   });
 });

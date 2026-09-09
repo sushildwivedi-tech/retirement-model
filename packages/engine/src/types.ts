@@ -194,6 +194,16 @@ export interface Person {
    * 22.9 for females on the 2020-22 tables.
    */
   sex?: 'male' | 'female';
+  /**
+   * Part-time or consulting work after retiring. Amount is in today's dollars and is
+   * indexed to CPI; it runs from `fromAge` up to but not including `toAge`.
+   *
+   * It is employment income, so it counts against the Age Pension income test and is
+   * eligible for the Work Bonus. It does NOT attract the super guarantee here, because
+   * this kind of work is usually contracting rather than employment - if it is really a
+   * salaried part-time job, model it by lowering `salary` and raising `retirementAge`.
+   */
+  partTimeIncome?: { amount: number; fromAge: number; toAge: number };
 }
 
 export interface Household {
@@ -418,6 +428,8 @@ export interface YearRow {
   cpiIndex: number;
   income: {
     salary: number;
+    /** Part-time or consulting income after retirement. */
+    partTime: number;
     /** Interest on cash plus dividends and distributions on outside-super investments. */
     investmentIncome: number;
     /** Compulsory minimum pension payments not needed for spending; they land in cash. */

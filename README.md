@@ -9,6 +9,33 @@ test, Monte Carlo simulation over correlated returns and sampled lifespans, four
 strategies, and solvers for both the maximum sustainable spend and the earliest
 retirement age. The app lists what is missing on every screen.
 
+## Where each number comes from
+
+The UI colour-codes provenance, because a figure you typed and a figure taken from the
+ATO are not the same kind of thing and should not look alike:
+
+| | Meaning |
+|---|---|
+| White | Your own figures — edit freely |
+| Amber | Assumptions — editable, but a modelling choice, not a fact |
+| Sky | Public data — sourced, and therefore **not editable** |
+| Indigo | Calculated by the model |
+
+Nineteen sourced figures (super guarantee, caps, preservation age, Medicare levy, CGT
+discount, Age Pension rates and thresholds, deeming, the Work Bonus, aged care fees,
+private health premium growth, the health curve and the life tables) are listed read-only
+in the sidebar with their source. Changing one means updating the ruleset, not the form.
+
+## What would move the needle
+
+A levers table re-runs the whole projection with one change at a time — retire later,
+spend less, save more, salary sacrifice, part-time work, downsize at 55 to unlock the
+downsizer contribution, hold a cash buffer, glide to defensive — and reports what each is
+worth in years, ranked by outcome. Apply takes any of them into your inputs.
+
+It ranks by outcome, not by what the change costs you: working five more years and
+spending $10,000 less are not equivalent sacrifices, and only you can weigh them.
+
 ## Your details stay yours
 
 The app ships with **illustrative example figures** — a made-up household, not anyone's

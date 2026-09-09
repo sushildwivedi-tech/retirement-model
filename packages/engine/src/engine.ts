@@ -281,12 +281,21 @@ export function project(
     };
 
     // --- 2. Income -------------------------------------------------------------
+    // Salary and part-time income are tracked apart: salary sets the super guarantee
+    // base, part-time work does not (see Person.partTimeIncome). Both are employment
+    // income for the Age Pension income test and the Work Bonus.
     const salaryOf: Record<string, number> = {};
+    const partTimeOf: Record<string, number> = {};
     let salaryTotal = 0;
+    let partTimeTotal = 0;
     for (const p of alive) {
-      const s0 = ages[p.id] < p.retirementAge ? p.salary * wageIndex(p) : 0;
-      salaryOf[p.id] = s0;
-      salaryTotal += s0;
+      const age = ages[p.id];
+      salaryOf[p.id] = age < p.retirementAge ? p.salary * wageIndex(p) : 0;
+      salaryTotal += salaryOf[p.id];
+      const pt = p.partTimeIncome;
+      partTimeOf[p.id] =
+        pt && age >= pt.fromAge && age < pt.toAge ? pt.amount * cpiIndex : 0;
+      partTimeTotal += partTimeOf[p.id];
     }
 
     const cashInterest = state.cash * ret.cash;
@@ -454,7 +463,7 @@ export function project(
         people: alive.map((p) => ({
           id: p.id,
           age: ages[p.id],
-          employmentIncome: inRetirement ? salaryOf[p.id] : 0,
+          employmentIncome: inRetirement ? salaryOf[p.id] + partTimeOf[p.id] : 0,
           workBonusBalance: state.workBonusBalance[p.id],
         })),
         partnered,
@@ -468,7 +477,7 @@ export function project(
     state.workBonusBalance = { ...state.workBonusBalance, ...ap.workBonusBalanceEnd };
 
     // --- 6/7. Fund the year, then tax it ---------------------------------------
-    const spendableIncome = inRetirement ? salaryTotal + ap.entitlement : 0;
+    const spendableIncome = inRetirement ? salaryTotal + partTimeTotal + ap.entitlement : 0;
     state.cash += taxableInvestmentIncome;
 
     // Ownership shares are renormalised over the living, so a survivor is taxed on the
@@ -501,7 +510,7 @@ export function project(
         const saptoEligible = ages[p.id] >= pensionAge && pension > 0;
         const status = partnered ? ('couplePartnerEach' as const) : ('single' as const);
         const taxable =
-          salaryOf[p.id] + (taxableInvestmentIncome + discounted) * share + pension;
+          salaryOf[p.id] + partTimeOf[p.id] + (taxableInvestmentIncome + discounted) * share + pension;
         const full = personalIncomeTax(taxable, ry, { saptoEligible, saptoStatus: status });
         const netted = inRetirement
           ? 0
@@ -739,6 +748,7 @@ export function project(
       cpiIndex,
       income: {
         salary: round(salaryTotal),
+        partTime: round(partTimeTotal),
         investmentIncome: round(taxableInvestmentIncome),
         superPensionPayments: round(minimumPensionPayment),
         total: round(spendableIncome),

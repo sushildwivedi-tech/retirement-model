@@ -26,7 +26,6 @@ export interface FormInputs {
   outOfPocketMultiplier: number;
   privateHealthInsurancePremium: number;
   healthInflation: number;
-  privateHealthInsuranceInflation: number;
   phaseGoGoTo: number;
   phaseSlowGoMultiplier: number;
   phaseNoGoFrom: number;
@@ -42,12 +41,19 @@ export interface FormInputs {
   drawdownStrategy: DrawdownStrategy;
   cashBufferYears: number;
   glidePath: boolean;
+  partTimeIncome: number;
+  partTimeYears: number;
+  partnerPartTimeIncome: number;
+  partnerPartTimeYears: number;
   hasPartner: boolean;
   partnerCurrentAge: number;
   partnerBirthYear: number;
   partnerRetirementAge: number;
   partnerSalary: number;
+  partnerWageGrowth: number;
   partnerSuperBalance: number;
+  partnerVoluntarySuperContribution: number;
+  partnerSex: 'male' | 'female' | 'unspecified';
   /** 0 means no death is modelled. */
   firstDeathAge: number;
   spendingStepDownOnFirstDeath: number;
@@ -86,7 +92,6 @@ export const defaults: FormInputs = {
   outOfPocketMultiplier: 1,
   privateHealthInsurancePremium: 0,
   healthInflation: 0.035,
-  privateHealthInsuranceInflation: 0.0345,
   phaseGoGoTo: 75,
   phaseSlowGoMultiplier: 0.85,
   phaseNoGoFrom: 85,
@@ -102,12 +107,19 @@ export const defaults: FormInputs = {
   drawdownStrategy: 'outsideSuperFirst',
   cashBufferYears: 3,
   glidePath: false,
+  partTimeIncome: 0,
+  partTimeYears: 5,
+  partnerPartTimeIncome: 0,
+  partnerPartTimeYears: 5,
   hasPartner: false,
   partnerCurrentAge: 40,
   partnerBirthYear: 1986,
   partnerRetirementAge: 50,
-  partnerSalary: 120_000,
-  partnerSuperBalance: 140_000,
+  partnerSalary: 90_000,
+  partnerWageGrowth: 0.035,
+  partnerSuperBalance: 150_000,
+  partnerVoluntarySuperContribution: 0,
+  partnerSex: 'unspecified',
   firstDeathAge: 0,
   spendingStepDownOnFirstDeath: 0.7,
   downsize: true,
@@ -180,7 +192,13 @@ export function mergeInputs(incoming: Partial<FormInputs>): FormInputs {
 export const PRIMARY_ID = 'you';
 export const PARTNER_ID = 'partner';
 
-export function toScenario(f: FormInputs): Scenario {
+/** Values the model takes from public data rather than from the user. */
+export interface SourcedRates {
+  /** Private health insurance premium growth, from the Department of Health series. */
+  phiInflation: number;
+}
+
+export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
   const people = [
     {
       id: PRIMARY_ID,
@@ -193,6 +211,14 @@ export function toScenario(f: FormInputs): Scenario {
       superBalance: f.superBalance,
       voluntarySuperContribution: f.voluntarySuperContribution,
       sex: f.sex === 'unspecified' ? undefined : f.sex,
+      partTimeIncome:
+        f.partTimeIncome > 0 && f.partTimeYears > 0
+          ? {
+              amount: f.partTimeIncome,
+              fromAge: f.retirementAge,
+              toAge: f.retirementAge + f.partTimeYears,
+            }
+          : undefined,
     },
   ];
   if (f.hasPartner) {
@@ -203,10 +229,18 @@ export function toScenario(f: FormInputs): Scenario {
       currentAge: f.partnerCurrentAge,
       retirementAge: f.partnerRetirementAge,
       salary: f.partnerSalary,
-      wageGrowth: f.wageGrowth,
+      wageGrowth: f.partnerWageGrowth,
       superBalance: f.partnerSuperBalance,
-      voluntarySuperContribution: 0,
-      sex: undefined,
+      voluntarySuperContribution: f.partnerVoluntarySuperContribution,
+      sex: f.partnerSex === 'unspecified' ? undefined : f.partnerSex,
+      partTimeIncome:
+        f.partnerPartTimeIncome > 0 && f.partnerPartTimeYears > 0
+          ? {
+              amount: f.partnerPartTimeIncome,
+              fromAge: f.partnerRetirementAge,
+              toAge: f.partnerRetirementAge + f.partnerPartTimeYears,
+            }
+          : undefined,
     });
   }
 
@@ -267,7 +301,7 @@ export function toScenario(f: FormInputs): Scenario {
         outOfPocketMultiplier: f.outOfPocketMultiplier,
         privateHealthInsurancePremium: f.privateHealthInsurancePremium,
         healthInflation: f.healthInflation,
-        privateHealthInsuranceInflation: f.privateHealthInsuranceInflation,
+        privateHealthInsuranceInflation: sourced.phiInflation,
       },
       agedCare: {
         enabled: f.agedCareEnabled,

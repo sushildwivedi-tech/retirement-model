@@ -107,12 +107,20 @@ answer takes seconds and cannot sit behind a live number. It is the age that wor
 returns behave, not the age that works most of the time, and the page says so. The
 probabilistic answer is always later.
 
-**Compare** (`/compare`) puts two plans side by side. Both start as copies of your saved
-plan, so the first thing you see is two identical columns and every difference after that
-is one you made. It shows the outcomes for each, a diff of only the inputs that differ,
-and full editing for both sides. The simulations run on **the same seed for both**, so any
-gap between the two columns is the plan rather than the luck of the draw. Editing here
-does not touch your saved plan.
+**Compare** (`/compare`) puts **up to four** plans side by side. Each starts as a copy of
+your saved plan, so the first thing you see is identical columns and every difference after
+that is one you made. It shows the outcomes for each and a diff of only the inputs that
+differ, highlighting anything that departs from the first column.
+
+Editing is one scenario at a time behind a tab strip — four full input forms side by side
+would not fit on any realistic screen, and it is the *comparison* that needs to be side by
+side, not the editing.
+
+The simulations run on **the same seed for every scenario**, so each faces identical
+sampled futures and a gap between columns is the plan rather than the luck of the draw.
+The run count is a fixed total split between the scenarios rather than a fixed number each,
+so adding a fourth plan does not double the wait; fewer paths each is a fair trade when the
+comparison is paired. Editing here does not touch your saved plan.
 
 **The detail** (`/detail`) has the workings: balances and spending over time, longevity,
 the year-by-year table, and everything the model does not cover.
@@ -200,7 +208,9 @@ that jitters between reloads invites re-rolling until you like the number.
 
 Everything runs on the browser's main thread, so a 5,000-path run pauses the page for
 several seconds — a few seconds on a warm desktop browser, longer on the first run while
-the JIT warms up. Moving it to a Web Worker is the obvious next improvement.
+the JIT warms up. A prominent running indicator is painted before the thread locks up, and
+the work is scheduled so that it still starts if the tab is in the background. Moving it to
+a Web Worker is the obvious next improvement.
 
 Two solvers bisect on that probability:
 

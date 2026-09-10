@@ -15,12 +15,40 @@ import {
 } from '@retirement/engine';
 import { defaults, loadSaved, toScenario, type FormInputs } from './inputs';
 import { InputsPanel } from './inputs-panel';
+import { afterPaint } from './after-paint';
 import { money } from './format';
 
 interface Side {
   name: string;
   form: FormInputs;
 }
+
+const MAX_SIDES = 4;
+const MIN_SIDES = 2;
+
+/**
+ * Grid classes per scenario count.
+ *
+ * Written out rather than built from a template, because Tailwind scans the source for
+ * class names and would not find one assembled at runtime.
+ */
+/**
+ * Total simulated paths across all scenarios, split between them.
+ *
+ * Fixed as a total rather than per scenario, so adding a fourth plan does not double the
+ * wait. Fewer runs each is a fair trade here: every scenario is driven by the SAME seed,
+ * so they face identical sampled futures and the comparison between them is far more
+ * precise than the absolute probabilities are. Use the front page for a 5,000-path
+ * reading of a single plan.
+ */
+const TOTAL_RUNS = 3000;
+const runsPerScenario = (n: number) => Math.max(500, Math.floor(TOTAL_RUNS / n));
+
+const SUMMARY_GRID: Record<number, string> = {
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'md:grid-cols-2 xl:grid-cols-4',
+};
 
 /** Human labels for the fields worth diffing. Anything absent is not shown. */
 const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
@@ -103,14 +131,16 @@ export default function CompareView({
   lifeTables: LifeTables;
   healthCostCurve: HealthCostCurve;
 }) {
-  // A starts from your saved plan; B starts as a copy of it, so the first thing you see
-  // is two identical columns and every difference after that is one you made.
-  const [sides, setSides] = useState<[Side, Side]>([
+  // Every scenario starts as a copy of your saved plan, so the first thing you see is
+  // identical columns and every difference after that is one you made.
+  const [sides, setSides] = useState<Side[]>([
     { name: 'Your plan', form: defaults },
     { name: 'Alternative', form: defaults },
   ]);
-  const [mc, setMc] = useState<[MonteCarloResult | null, MonteCarloResult | null]>([null, null]);
+  const [mc, setMc] = useState<Array<MonteCarloResult | null>>([null, null]);
   const [busy, setBusy] = useState(false);
+  /** Which scenario the input form below is editing. Four forms side by side would not fit. */
+  const [editing, setEditing] = useState(0);
 
   useEffect(() => {
     const saved = loadSaved();
@@ -127,9 +157,9 @@ export default function CompareView({
 
   const results = useMemo(
     () =>
-      sides.map((s) => {
+      sides.map((side) => {
         try {
-          const scenario = toScenario(s.form, { phiInflation: phi });
+          const scenario = toScenario(side.form, { phiInflation: phi });
           return {
             ok: true as const,
             projection: project(scenario, ruleset, ds),
@@ -142,37 +172,75 @@ export default function CompareView({
     [sides, ruleset, ds, phi],
   );
 
-  const differences = useMemo(() => {
-    const [a, b] = sides;
-    return (Object.keys(FIELD_LABELS) as Array<keyof FormInputs>)
-      .filter((k) => a.form[k] !== b.form[k])
-      .map((k) => ({ key: k, label: FIELD_LABELS[k]!, a: show(k, a.form[k]), b: show(k, b.form[k]) }));
-  }, [sides]);
+  // Only the fields that actually differ, so four columns stay readable.
+  const differences = useMemo(
+    () =>
+      (Object.keys(FIELD_LABELS) as Array<keyof FormInputs>)
+        .filter((k) => sides.some((s2) => s2.form[k] !== sides[0].form[k]))
+        .map((k) => ({
+          key: k,
+          label: FIELD_LABELS[k]!,
+          values: sides.map((s2) => show(k, s2.form[k])),
+        })),
+    [sides],
+  );
 
-  const setSide = (i: 0 | 1, update: (f: FormInputs) => FormInputs) =>
-    setSides((prev) => {
-      const next: [Side, Side] = [prev[0], prev[1]];
-      next[i] = { ...next[i], form: update(next[i].form) };
-      return next;
-    });
+  const setSide = (i: number, update: (f: FormInputs) => FormInputs) =>
+    setSides((prev) => prev.map((s2, j) => (j === i ? { ...s2, form: update(s2.form) } : s2)));
 
-  const runBoth = () => {
+  const rename = (i: number, name: string) =>
+    setSides((prev) => prev.map((s2, j) => (j === i ? { ...s2, name } : s2)));
+
+  const clearRuns = () => setMc(sides.map(() => null));
+
+  const addSide = () => {
+    if (sides.length >= MAX_SIDES) return;
+    setSides((prev) => [
+      ...prev,
+      { name: `Alternative ${prev.length}`, form: prev[prev.length - 1].form },
+    ]);
+    setMc((prev) => [...prev, null]);
+  };
+
+  const removeSide = (i: number) => {
+    if (sides.length <= MIN_SIDES) return;
+    setSides((prev) => prev.filter((_, j) => j !== i));
+    setMc((prev) => prev.filter((_, j) => j !== i));
+    setEditing((e) => (e >= i && e > 0 ? e - 1 : e));
+  };
+
+  const duplicateSide = (i: number) => {
+    if (sides.length >= MAX_SIDES) return;
+    setSides((prev) => [
+      ...prev.slice(0, i + 1),
+      { name: `${prev[i].name} copy`, form: prev[i].form },
+      ...prev.slice(i + 1),
+    ]);
+    setMc((prev) => [...prev.slice(0, i + 1), null, ...prev.slice(i + 1)]);
+  };
+
+  const runAll = () => {
     setBusy(true);
-    setTimeout(() => {
+    // Let the "running" message paint before the main thread locks up.
+    afterPaint(() => {
       try {
-        setMc([
-          monteCarlo(toScenario(sides[0].form, { phiInflation: phi }), ruleset, ds, { runs: 2000, seed: 42 }),
-          // Same seed for both, so the two columns face the same sampled futures and any
-          // difference between them is the plan, not the draw.
-          monteCarlo(toScenario(sides[1].form, { phiInflation: phi }), ruleset, ds, { runs: 2000, seed: 42 }),
-        ]);
+        setMc(
+          sides.map((side) =>
+            // The same seed for every scenario, so each faces identical sampled futures
+            // and any gap between the columns is the plan, not the luck of the draw.
+            monteCarlo(toScenario(side.form, { phiInflation: phi }), ruleset, ds, {
+              runs: runsPerScenario(sides.length),
+              seed: 42,
+            }),
+          ),
+        );
       } finally {
         setBusy(false);
       }
-    }, 20);
+    });
   };
 
-  const summary = (r: (typeof results)[number], side: Side, i: 0 | 1) => {
+  const summary = (r: (typeof results)[number], i: number) => {
     if (!r.ok) return <p className="text-sm text-red-700">{r.error}</p>;
     const p: ProjectionResult = r.projection;
     const last = p.rows.at(-1);
@@ -228,21 +296,33 @@ export default function CompareView({
         <span className="rounded bg-slate-900 px-3 py-1.5 text-white">Compare</span>
       </nav>
 
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+      <div className={`mb-4 grid gap-4 ${SUMMARY_GRID[sides.length] ?? 'lg:grid-cols-2'}`}>
         {sides.map((side, i) => (
           <div key={i} className="rounded-lg border border-indigo-200 bg-white p-4">
-            <input
-              className="mb-2 w-full rounded border border-slate-300 px-2 py-1 font-semibold"
-              value={side.name}
-              onChange={(e) =>
-                setSides((prev) => {
-                  const next: [Side, Side] = [prev[0], prev[1]];
-                  next[i as 0 | 1] = { ...next[i as 0 | 1], name: e.target.value };
-                  return next;
-                })
-              }
-            />
-            {summary(results[i], side, i as 0 | 1)}
+            <div className="mb-2 flex items-center gap-1">
+              <input
+                className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-semibold"
+                value={side.name}
+                onChange={(e) => rename(i, e.target.value)}
+              />
+              <button
+                title="Duplicate this scenario"
+                disabled={sides.length >= MAX_SIDES}
+                onClick={() => duplicateSide(i)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Copy
+              </button>
+              <button
+                title="Remove this scenario"
+                disabled={sides.length <= MIN_SIDES}
+                onClick={() => removeSide(i)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                ✕
+              </button>
+            </div>
+            {summary(results[i], i)}
           </div>
         ))}
       </div>
@@ -250,25 +330,38 @@ export default function CompareView({
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
         <button
           disabled={busy}
-          onClick={runBoth}
+          onClick={runAll}
           className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
         >
-          Run 2,000 simulations on both
+          Run {runsPerScenario(sides.length).toLocaleString()} simulations on each
+        </button>
+        <button
+          disabled={sides.length >= MAX_SIDES}
+          onClick={addSide}
+          className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-40"
+        >
+          Add a scenario
         </button>
         <button
           onClick={() => {
-            setSides((prev) => [prev[0], { ...prev[1], form: prev[0].form }]);
-            setMc([null, null]);
+            setSides((prev) => prev.map((s2, j) => (j === 0 ? s2 : { ...s2, form: prev[0].form })));
+            clearRuns();
           }}
           className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
         >
-          Reset right to match left
+          Reset all to match {sides[0].name}
         </button>
         {busy ? (
-          <span className="text-sm text-slate-600">simulating… the page will pause</span>
+          <span className="flex items-center gap-2 rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
+            Running {(runsPerScenario(sides.length) * sides.length).toLocaleString()}{' '}
+            simulations across {sides.length} scenarios… this takes several seconds and the
+            page will not respond until it finishes.
+          </span>
         ) : (
           <span className="text-xs text-slate-500">
-            Both sides face the same sampled futures, so any difference is the plan, not luck.
+            {runsPerScenario(sides.length).toLocaleString()} paths each, every scenario facing
+            the same sampled futures — so a difference between them is the plan, not luck.
           </span>
         )}
       </div>
@@ -277,43 +370,76 @@ export default function CompareView({
         <h2 className="mb-2 font-semibold">What is different</h2>
         {differences.length === 0 ? (
           <p className="text-sm text-slate-600">
-            The two plans are identical. Change something on either side below.
+            {sides.length === 2 ? 'The two plans are identical.' : 'All the plans are identical.'}{' '}
+            Change something below.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase text-slate-600">
-              <tr>
-                <th className="px-2 py-1 text-left font-medium">Input</th>
-                <th className="px-2 py-1 text-right font-medium">{sides[0].name}</th>
-                <th className="px-2 py-1 text-right font-medium">{sides[1].name}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {differences.map((d) => (
-                <tr key={String(d.key)} className="border-t border-slate-100">
-                  <td className="px-2 py-1 text-slate-700">{d.label}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{d.a}</td>
-                  <td className="px-2 py-1 text-right font-medium tabular-nums text-indigo-700">
-                    {d.b}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-slate-600">
+                <tr>
+                  <th className="px-2 py-1 text-left font-medium">Input</th>
+                  {sides.map((side, i) => (
+                    <th key={i} className="px-2 py-1 text-right font-medium">
+                      {side.name}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {differences.map((d) => (
+                  <tr key={String(d.key)} className="border-t border-slate-100">
+                    <td className="px-2 py-1 text-slate-700">{d.label}</td>
+                    {d.values.map((v, i) => (
+                      <td
+                        key={i}
+                        className={`px-2 py-1 text-right tabular-nums ${
+                          // Anything that differs from the first column is the change
+                          // being tested, so it is the thing worth the reader's eye.
+                          i > 0 && v !== d.values[0]
+                            ? 'font-medium text-indigo-700'
+                            : 'text-slate-700'
+                        }`}
+                      >
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {sides.map((side, i) => (
-          <div key={i} className="space-y-5">
-            <div className="rounded bg-slate-100 px-3 py-2 text-sm font-medium">{side.name}</div>
-            <InputsPanel
-              form={side.form}
-              setForm={(update) => setSide(i as 0 | 1, update)}
-              onChange={() => setMc([null, null])}
-            />
-          </div>
-        ))}
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-slate-700">Editing</span>
+          {/* One form at a time: four full input panels side by side would not fit on
+              any realistic screen, and the comparison above is what needs to be side by
+              side, not the editing. */}
+          {sides.map((side, i) => (
+            <button
+              key={i}
+              onClick={() => setEditing(i)}
+              className={`rounded px-3 py-1.5 text-sm ${
+                editing === i
+                  ? 'bg-slate-900 text-white'
+                  : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {side.name}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-5">
+          <InputsPanel
+            key={editing}
+            form={sides[editing].form}
+            setForm={(update) => setSide(editing, update)}
+            onChange={clearRuns}
+          />
+        </div>
       </div>
 
       <p className="pb-8 pt-6 text-xs text-slate-500">

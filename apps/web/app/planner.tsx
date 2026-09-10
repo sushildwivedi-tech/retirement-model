@@ -33,6 +33,7 @@ import {
 } from './inputs';
 import type { DrawdownStrategy } from '@retirement/engine';
 import { InputsPanel } from './inputs-panel';
+import { afterPaint } from './after-paint';
 import { money, pct } from './format';
 import BalanceChart from './balance-chart';
 import HealthChart from './health-chart';
@@ -161,16 +162,16 @@ export default function Planner({
     clearResults();
   };
 
-  // Yield to the browser so the "working…" state paints before the main thread blocks.
+  /** Run blocking work, having first let the browser paint the "running" state. */
   const run = (label: string, work: () => void) => {
     setBusy(label);
-    setTimeout(() => {
+    afterPaint(() => {
       try {
         work();
       } finally {
         setBusy(null);
       }
-    }, 20);
+    });
   };
 
   // --- Planning levers -------------------------------------------------------------
@@ -863,7 +864,15 @@ export default function Planner({
                   Earliest retirement age
                 </button>
                 {busy ? (
-                  <span className="text-sm text-slate-600">{busy}… the page will pause</span>
+                  <span className="flex items-center gap-2 rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
+                    {busy === 'simulating'
+                      ? 'Running 5,000 simulations'
+                      : busy === 'solving spend'
+                        ? 'Searching for the highest sustainable spend'
+                        : 'Searching for the earliest retirement age'}
+                    … the page will not respond until it finishes.
+                  </span>
                 ) : (
                   <span className="text-xs text-slate-500">
                     Runs in this browser — takes a few seconds and pauses the page while it works.

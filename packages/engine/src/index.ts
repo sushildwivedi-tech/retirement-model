@@ -13,6 +13,8 @@ export {
   netFromGross,
   grossFromNet,
 } from './tax';
+export { takeHome, grossFromTakeHome } from './pay';
+export type { PayBreakdown } from './pay';
 export { agePension, deemedIncome, minimumDrawdownPercent } from './agePension';
 export {
   outOfPocketAtAge,

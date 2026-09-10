@@ -1,6 +1,6 @@
 import {
-  grossFromNet,
-  netFromGross,
+  grossFromTakeHome,
+  takeHome,
   type DrawdownStrategy,
   type Ruleset,
   type Scenario,
@@ -250,12 +250,27 @@ export function applyFieldRules(
 
   // Pay, both ways. Editing take-home solves for the gross; a gross arriving from an
   // imported scenario or a planning lever pushes the take-home figure back the other way.
-  if (key === 'netMonthlyPay') next.salary = grossSalaryFor(next.netMonthlyPay, ruleset);
-  else if (key === 'salary') next.netMonthlyPay = netMonthlyFor(next.salary, ruleset);
-  else if (key === 'partnerNetMonthlyPay') {
-    next.partnerSalary = grossSalaryFor(next.partnerNetMonthlyPay, ruleset);
-  } else if (key === 'partnerSalary') {
-    next.partnerNetMonthlyPay = netMonthlyFor(next.partnerSalary, ruleset);
+  if (key === 'netMonthlyPay') {
+    next.salary = grossSalaryFor(next.netMonthlyPay, ruleset, next.voluntarySuperContribution);
+  } else if (key === 'salary') {
+    next.netMonthlyPay = netMonthlyFor(next.salary, ruleset, next.voluntarySuperContribution);
+  } else if (key === 'voluntarySuperContribution') {
+    // Sacrificing more does not raise your salary - it lowers what reaches the bank. So
+    // the gross holds and the take-home moves, which is also the honest way to show what
+    // the lever costs.
+    next.netMonthlyPay = netMonthlyFor(next.salary, ruleset, next.voluntarySuperContribution);
+  } else if (key === 'partnerNetMonthlyPay') {
+    next.partnerSalary = grossSalaryFor(
+      next.partnerNetMonthlyPay,
+      ruleset,
+      next.partnerVoluntarySuperContribution,
+    );
+  } else if (key === 'partnerSalary' || key === 'partnerVoluntarySuperContribution') {
+    next.partnerNetMonthlyPay = netMonthlyFor(
+      next.partnerSalary,
+      ruleset,
+      next.partnerVoluntarySuperContribution,
+    );
   } else if (key === 'healthInsuranceMonthly') {
     next.privateHealthInsurancePremium = annualFromMonthly(next.healthInsuranceMonthly);
   } else if (key === 'privateHealthInsurancePremium') {
@@ -320,12 +335,23 @@ export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): Fo
   // file supplied is kept and the other recomputed, so the form never opens showing two
   // numbers that contradict each other. The monthly figure wins when both are present -
   // it is the one a person typed.
-  if (took.has('netMonthlyPay')) out.salary = grossSalaryFor(out.netMonthlyPay, ruleset);
-  else if (took.has('salary')) out.netMonthlyPay = netMonthlyFor(out.salary, ruleset);
+  if (took.has('netMonthlyPay')) {
+    out.salary = grossSalaryFor(out.netMonthlyPay, ruleset, out.voluntarySuperContribution);
+  } else if (took.has('salary') || took.has('voluntarySuperContribution')) {
+    out.netMonthlyPay = netMonthlyFor(out.salary, ruleset, out.voluntarySuperContribution);
+  }
   if (took.has('partnerNetMonthlyPay')) {
-    out.partnerSalary = grossSalaryFor(out.partnerNetMonthlyPay, ruleset);
-  } else if (took.has('partnerSalary')) {
-    out.partnerNetMonthlyPay = netMonthlyFor(out.partnerSalary, ruleset);
+    out.partnerSalary = grossSalaryFor(
+      out.partnerNetMonthlyPay,
+      ruleset,
+      out.partnerVoluntarySuperContribution,
+    );
+  } else if (took.has('partnerSalary') || took.has('partnerVoluntarySuperContribution')) {
+    out.partnerNetMonthlyPay = netMonthlyFor(
+      out.partnerSalary,
+      ruleset,
+      out.partnerVoluntarySuperContribution,
+    );
   }
   if (took.has('healthInsuranceMonthly')) {
     out.privateHealthInsurancePremium = annualFromMonthly(out.healthInsuranceMonthly);
@@ -338,21 +364,29 @@ export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): Fo
 /**
  * The gross annual salary behind a monthly take-home figure.
  *
- * Rounded to whole dollars in both directions, which keeps the pair stable: converting
- * back and forth repeatedly does not drift the number under the user. What it assumes is
- * the same thing the projection assumes of a working year - salary is the whole of
- * taxable income. No salary sacrifice, no HELP debt, no other deduction. The super
- * guarantee is paid on top of salary, so it is correctly absent here.
+ * Salary sacrifice comes out before tax, so the same take-home means a higher gross when
+ * you sacrifice - and the engine trims a sacrifice that will not fit under the
+ * concessional cap, so this does too. Rounded to whole dollars in both directions, which
+ * keeps the pair stable: converting back and forth repeatedly does not drift the number
+ * under the user.
+ *
+ * The remaining assumption is the projection's own: salary is the whole of taxable
+ * income. No HELP repayment, no reportable fringe benefits, no Division 293 surcharge.
+ * The super guarantee is paid on top of salary, so it is correctly absent here.
  */
-export function grossSalaryFor(netMonthly: number, ruleset: Ruleset): number {
+export function grossSalaryFor(
+  netMonthly: number,
+  ruleset: Ruleset,
+  salarySacrifice = 0,
+): number {
   if (!Number.isFinite(netMonthly) || netMonthly <= 0) return 0;
-  return Math.round(grossFromNet(netMonthly * 12, ruleset));
+  return Math.round(grossFromTakeHome(netMonthly * 12, ruleset, { salarySacrifice }));
 }
 
-/** What a gross annual salary leaves in the hand each month, after tax. */
-export function netMonthlyFor(gross: number, ruleset: Ruleset): number {
+/** What a gross annual salary leaves in the hand each month, after sacrifice and tax. */
+export function netMonthlyFor(gross: number, ruleset: Ruleset, salarySacrifice = 0): number {
   if (!Number.isFinite(gross) || gross <= 0) return 0;
-  return Math.round(netFromGross(gross, ruleset) / 12);
+  return Math.round(takeHome(gross, ruleset, { salarySacrifice }).net / 12);
 }
 
 const annualFromMonthly = (monthly: number) =>

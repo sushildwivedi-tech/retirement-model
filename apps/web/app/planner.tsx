@@ -20,6 +20,7 @@ import {
   type YearRow,
 } from '@retirement/engine';
 import {
+  applyFieldRules,
   clearSaved,
   defaults,
   loadSaved,
@@ -1025,7 +1026,15 @@ export default function Planner({
                           <td className="px-2 py-2 text-right">
                             <button
                               onClick={() => {
-                                setForm((f) => ({ ...f, ...l.change }));
+                                // Through the field rules, key by key: applying "salary
+                                // sacrifice $10,000" has to move the take-home figure the
+                                // form shows, or the panel would contradict the lever.
+                                setForm((f) =>
+                                  (Object.keys(l.change) as Array<keyof FormInputs>).reduce(
+                                    (acc, k) => applyFieldRules(acc, k, ruleset),
+                                    { ...f, ...l.change },
+                                  ),
+                                );
                                 clearResults();
                               }}
                               className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"

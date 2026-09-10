@@ -1,6 +1,6 @@
 'use client';
 
-import type { DrawdownStrategy, Ruleset } from '@retirement/engine';
+import { takeHome, type DrawdownStrategy, type Ruleset } from '@retirement/engine';
 import { applyFieldRules, PROVISIONAL, type FormInputs } from './inputs';
 import { money } from './format';
 
@@ -14,9 +14,9 @@ type Field = {
   role?: Role;
   /**
    * A figure the model works out from this field, shown underneath it and coloured as
-   * calculated. Not an input: there is nowhere to type it.
+   * calculated. Not an input: there is nowhere to type it. Return '' for nothing to say.
    */
-  derived?: (f: FormInputs) => string;
+  derived?: (f: FormInputs, ruleset: Ruleset) => string;
 };
 type Group = {
   title: string;
@@ -32,6 +32,23 @@ type Group = {
   /** One line under the title explaining what the decision means. */
   help?: string;
 };
+
+/**
+ * What sacrificing costs in the hand, and whether the cap will take it.
+ *
+ * Sacrifice comes out before tax, so a $10,000 contribution costs well under $10,000 of
+ * take-home - the gap is the point of doing it. Worth stating plainly, because the field
+ * above it is the one number in the form that buys something for less than it says.
+ */
+function sacrificeNote(gross: number, wanted: number, ruleset: Ruleset): string {
+  if (!(gross > 0) || !(wanted > 0)) return '';
+  const p = takeHome(gross, ruleset, { salarySacrifice: wanted });
+  const cost = takeHome(gross, ruleset).net - p.net;
+  const costs = `costs ${money(Math.round(cost))} of take-home`;
+  return p.salarySacrificeRefused > 1
+    ? `Only ${money(Math.round(p.salarySacrifice))} fits under the cap — ${costs}`
+    : `Before tax, so it ${costs}`;
+}
 
 const GROUPS: Group[] = [
   {
@@ -56,7 +73,12 @@ const GROUPS: Group[] = [
     requires: 'hasPartner',
     fields: [
       { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
-      { key: 'partnerVoluntarySuperContribution', label: 'Extra contributions / yr', kind: 'money' },
+      {
+        key: 'partnerVoluntarySuperContribution',
+        label: 'Salary sacrifice / yr',
+        kind: 'money',
+        derived: (f, r) => sacrificeNote(f.partnerSalary, f.partnerVoluntarySuperContribution, r),
+      },
     ],
   },
   {
@@ -81,7 +103,7 @@ const GROUPS: Group[] = [
   },
   {
     title: 'Income and saving (while working)',
-    help: 'Pay is what reaches your account each month. The gross salary underneath it is worked out from the tax scale — the model needs the gross for the super guarantee.',
+    help: 'Pay is what reaches your account each month, after any salary sacrifice and after tax. The gross salary underneath it is worked out from the tax scale — the model needs the gross for the super guarantee.',
     fields: [
       {
         key: 'netMonthlyPay',
@@ -91,7 +113,12 @@ const GROUPS: Group[] = [
       },
       { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
       { key: 'annualSavings', label: 'Saved outside super each year', kind: 'money' },
-      { key: 'voluntarySuperContribution', label: 'Extra super contributions', kind: 'money' },
+      {
+        key: 'voluntarySuperContribution',
+        label: 'Salary sacrifice into super / yr',
+        kind: 'money',
+        derived: (f, r) => sacrificeNote(f.salary, f.voluntarySuperContribution, r),
+      },
     ],
   },
   {
@@ -292,13 +319,13 @@ export function InputsPanel({
                     </label>
                     {/* Calculated, so it is shown rather than offered as an input -
                         indigo, matching the legend. Nothing typed, nothing to work out. */}
-                    {f.derived && v > 0 && (
+                    {f.derived && v > 0 && f.derived(form, ruleset) !== '' && (
                       <div className="mt-0.5 text-right text-[11px] text-indigo-700">
                         <span
                           className="rounded bg-indigo-50 px-1"
                           title="Worked out by the model from what you typed — not an input."
                         >
-                          {f.derived(form)}
+                          {f.derived(form, ruleset)}
                         </span>
                       </div>
                     )}

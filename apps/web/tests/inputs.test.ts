@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { netFromGross, type Ruleset } from '@retirement/engine';
+import { netFromGross, takeHome, type Ruleset } from '@retirement/engine';
 import {
   defaults,
   mergeInputs,
@@ -207,5 +207,91 @@ describe('an imported file with only one side of a derived pair', () => {
     expect(
       mergeInputs({ healthInsuranceMonthly: 150 }, ruleset).privateHealthInsurancePremium,
     ).toBe(1_800);
+  });
+});
+
+describe('salary sacrifice comes out before the take-home figure', () => {
+  const sacrificing = (over: Partial<FormInputs>) =>
+    withField({ salary: 120_000, netMonthlyPay: netMonthlyFor(120_000, ruleset), ...over });
+
+  it('lowers take-home without touching the salary, because that is what it does', () => {
+    const before = sacrificing({});
+    const out = rules(
+      { ...before, voluntarySuperContribution: 10_000 },
+      'voluntarySuperContribution',
+    );
+    expect(out.salary).toBe(120_000);
+    expect(out.netMonthlyPay).toBeLessThan(before.netMonthlyPay);
+  });
+
+  it('costs less in the hand than it puts into super', () => {
+    const before = sacrificing({});
+    const out = rules(
+      { ...before, voluntarySuperContribution: 10_000 },
+      'voluntarySuperContribution',
+    );
+    const cost = (before.netMonthlyPay - out.netMonthlyPay) * 12;
+    expect(cost).toBeLessThan(10_000);
+    expect(cost).toBeGreaterThan(5_000);
+  });
+
+  it('needs a higher salary to reach the same take-home', () => {
+    const plain = rules(withField({ netMonthlyPay: 7_000 }), 'netMonthlyPay');
+    const with10k = rules(
+      withField({ netMonthlyPay: 7_000, voluntarySuperContribution: 10_000 }),
+      'netMonthlyPay',
+    );
+    expect(with10k.salary).toBeGreaterThan(plain.salary);
+    // It fits under the cap at this salary, so it is simply added on top.
+    expect(with10k.salary).toBe(plain.salary + 10_000);
+  });
+
+  it('holds the take-home the user typed when the sacrifice is entered afterwards', () => {
+    // The gross moves, not the take-home: they told us what reaches the bank.
+    const typed = rules(withField({ netMonthlyPay: 7_000 }), 'netMonthlyPay');
+    const then = rules({ ...typed, voluntarySuperContribution: 12_000 }, 'netMonthlyPay');
+    expect(then.netMonthlyPay).toBe(7_000);
+    expect(takeHome(then.salary, ruleset, { salarySacrifice: 12_000 }).net / 12).toBeCloseTo(
+      7_000,
+      0,
+    );
+  });
+
+  it('round-trips through the gross and back with a sacrifice in the way', () => {
+    let f = rules(withField({ voluntarySuperContribution: 15_000, netMonthlyPay: 6_500 }), 'netMonthlyPay');
+    for (let i = 0; i < 5; i++) {
+      f = rules({ ...f, salary: f.salary }, 'salary');
+      f = rules({ ...f, netMonthlyPay: f.netMonthlyPay }, 'netMonthlyPay');
+    }
+    expect(f.netMonthlyPay).toBe(6_500);
+  });
+
+  it('will not pretend a sacrifice the concessional cap refuses reduces your tax', () => {
+    // At $120,000 the guarantee already uses most of the cap, so a $30,000 sacrifice is
+    // trimmed - and only the part that fits comes off taxable income.
+    const out = rules(
+      sacrificing({ voluntarySuperContribution: 30_000 }),
+      'voluntarySuperContribution',
+    );
+    const p = takeHome(120_000, ruleset, { salarySacrifice: 30_000 });
+    expect(p.salarySacrificeRefused).toBeGreaterThan(0);
+    expect(out.netMonthlyPay).toBe(Math.round(p.net / 12));
+  });
+
+  it('does the same for a partner, without touching yours', () => {
+    const before = withField({ hasPartner: true });
+    const out = rules(
+      { ...before, partnerVoluntarySuperContribution: 8_000 },
+      'partnerVoluntarySuperContribution',
+    );
+    expect(out.partnerSalary).toBe(defaults.partnerSalary);
+    expect(out.partnerNetMonthlyPay).toBeLessThan(defaults.partnerNetMonthlyPay);
+    expect(out.netMonthlyPay).toBe(defaults.netMonthlyPay);
+  });
+
+  it('is accounted for when a scenario file is imported', () => {
+    const out = mergeInputs({ salary: 120_000, voluntarySuperContribution: 10_000 }, ruleset);
+    expect(out.netMonthlyPay).toBe(netMonthlyFor(120_000, ruleset, 10_000));
+    expect(out.netMonthlyPay).toBeLessThan(netMonthlyFor(120_000, ruleset));
   });
 });

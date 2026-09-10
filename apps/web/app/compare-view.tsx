@@ -58,7 +58,7 @@ const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
   netMonthlyPay: 'Take-home pay / month',
   wageGrowth: 'Wage growth',
   annualSavings: 'Saved each year',
-  voluntarySuperContribution: 'Extra super',
+  voluntarySuperContribution: 'Salary sacrifice',
   cash: 'Cash',
   investments: 'Investments',
   superBalance: 'Super',

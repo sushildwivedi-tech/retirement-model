@@ -294,7 +294,12 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
 2. **Pre-retirement salary tax.** While working, the household is modelled by its net
    savings rate, so tax on salary is already inside that figure. Only the *incremental*
    tax caused by investment income is charged against the portfolio, at the marginal rate
-   that income actually attracts.
+   that income actually attracts. The same applies to salary sacrifice: the form shows what
+   it costs in the hand, but the projection does not deduct that cost from what you save
+   outside super — `annualSavings` is taken as given, and is assumed to be what you save
+   *after* sacrificing. So the "salary sacrifice $10,000" lever shows the benefit without
+   charging the cost. Lower `annualSavings` by the take-home cost the field quotes if you
+   want the honest comparison.
 3. **Coupled inputs are kept consistent.** Age and birth year are one fact — editing
    either moves the other, on the convention `birthYear = startYear - age`. Birth year is
    not decoration: it sets your preservation age and therefore the year super becomes
@@ -305,10 +310,14 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    and the gross salary the model needs — for the super guarantee, which is paid on top
    of salary — is solved back out of it against the tax scale in the ruleset
    (`grossFromNet`, bisection rather than a hand-rolled inverse, because the LITO tapers
-   and the Medicare shade-in put kinks in the curve that are not the tax brackets). It
-   assumes salary is the whole of your taxable income: no salary sacrifice, no HELP
-   repayment, no other deduction. Health insurance is entered monthly, as it is billed,
-   for the same reason — it is the figure you know. Both derived figures are shown under
+   and the Medicare shade-in put kinks in the curve that are not the tax brackets). Salary sacrifice
+   is taken off before the tax, which is the whole point of sacrificing: $10,000 into
+   super costs about $6,100 of take-home at a 39% marginal rate, and the field says so.
+   A sacrifice the concessional cap will not take is trimmed to what fits — the same
+   trim the projection applies year by year, so the figure quoted is the figure that
+   actually goes in. What is still assumed away: HELP repayments, reportable fringe
+   benefits, and the Division 293 surcharge. Health insurance is entered monthly, as it
+   is billed, for the same reason — it is the figure you know. Both derived figures are shown under
    the field, coloured as calculated, and there is nowhere to type them.
 4. **Death is an input, not an inference.** Modelling a first death means choosing when.
    Rather than invent a date, it is an explicit scenario event (`kind: 'death'`), default

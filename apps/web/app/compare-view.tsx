@@ -271,7 +271,10 @@ export default function CompareView({
     const liquid = last ? toRealRow(last).balances.total - toRealRow(last).balances.primaryResidence : 0;
     const rows: Array<[string, string]> = [
       [
-        'Could retire at',
+        // Named for what it is. The front page's headline is the simulated figure; four
+        // scenarios' worth of goal-seek would not be worth the wait here, so this stays
+        // the central path and says so.
+        'Could retire at (central path)',
         r.retire.age === null
           ? 'no age works'
           : r.retire.people.map((x) => `${x.name} ${x.age}`).join(', '),

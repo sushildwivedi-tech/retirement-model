@@ -6,9 +6,6 @@ import {
   compareScenarios,
   earliestRetirementAgeDeterministic,
   personalIncomeTax,
-  earliestRetirementAge,
-  maxSustainableSpend,
-  monteCarlo,
   project,
   toCsv,
   toRealRow,
@@ -20,7 +17,6 @@ import {
   type YearRow,
 } from '@retirement/engine';
 import {
-  applyFieldRules,
   clearSaved,
   withChange,
   defaults,
@@ -35,7 +31,7 @@ import {
 } from './inputs';
 import type { DrawdownStrategy } from '@retirement/engine';
 import { InputsPanel } from './inputs-panel';
-import { afterPaint } from './after-paint';
+import { useSolver, useBackgroundAge } from './use-solver';
 import { money, pct } from './format';
 import BalanceChart from './balance-chart';
 import HealthChart from './health-chart';
@@ -97,25 +93,61 @@ export default function Planner({
   const [mc, setMc] = useState<MonteCarloResult | null>(null);
   const [spendSolve, setSpendSolve] = useState<GoalSeekResult<number> | null>(null);
   const [ageSolve, setAgeSolve] = useState<GoalSeekResult<number> | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  // Monte Carlo and the solvers run in a worker, so the page keeps responding while they
+  // do. `busy` is whichever job is in flight, or null.
+  const { send, busy } = useSolver();
   const [confidence, setConfidence] = useState(85);
+  const conf = confidence / 100;
+  const ds = useMemo(() => ({ lifeTables, healthCostCurve }), [lifeTables, healthCostCurve]);
+  const scenario = useMemo(
+    () =>
+      toScenario(form, {
+        phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value,
+      }),
+    [form, ruleset],
+  );
+
+  /**
+   * The headline, solved in the background at a lower run count so it arrives in about
+   * half a second, then left alone until the next edit. The button below still runs the
+   * full 5,000 paths for the fan chart and the verified probability.
+   *
+   * Above the early return below, deliberately: a hook that sometimes does not run is a
+   * hook-order bug, and this one has both state and an effect.
+   */
+  const confidenceAge = useBackgroundAge(
+    JSON.stringify([scenario, conf]),
+    async () => {
+      const reply = await send(
+        {
+          kind: 'earliestAge',
+          scenario,
+          ruleset,
+          datasets: ds,
+          confidence: conf,
+          // Lower than the button's counts on purpose: this refreshes after every edit,
+          // and it is seeded, so the same inputs always give the same answer rather than
+          // jittering. The button re-measures at 2,000 when an exact figure is wanted.
+          searchRuns: 250,
+          runs: 600,
+        },
+        'headline',
+      );
+      return reply.kind === 'earliestAge' ? reply.result : null;
+    },
+    view === 'answer',
+  );
 
   const result = useMemo(() => {
     try {
       return {
         ok: true as const,
-        value: project(
-          toScenario(form, {
-            phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value,
-          }),
-          ruleset,
-          { lifeTables, healthCostCurve },
-        ),
+        value: project(scenario, ruleset, ds),
       };
     } catch (e) {
       return { ok: false as const, error: (e as Error).message };
     }
-  }, [form, ruleset, lifeTables, healthCostCurve]);
+  }, [scenario, ruleset, ds]);
 
   if (!result.ok) {
     return <main className="p-8 text-red-700">Could not run the projection: {result.error}</main>;
@@ -194,17 +226,6 @@ export default function Planner({
     clearResults();
   };
 
-  /** Run blocking work, having first let the browser paint the "running" state. */
-  const run = (label: string, work: () => void) => {
-    setBusy(label);
-    afterPaint(() => {
-      try {
-        work();
-      } finally {
-        setBusy(null);
-      }
-    });
-  };
 
   // --- Planning levers -------------------------------------------------------------
   // Each is a concrete change to the plan, evaluated deterministically. One projection
@@ -517,12 +538,6 @@ export default function Planner({
     },
   ];
 
-  const scenario = toScenario(form, {
-    phiInflation: ruleset.privateHealthInsurance.premiumGrowthRate.value,
-  });
-  const ds = { lifeTables, healthCostCurve };
-  const conf = confidence / 100;
-
   // The headline. Deterministic on purpose: it is a binary search over a handful of
   // projections, so it updates as you type, where the Monte Carlo answer takes seconds.
   const canRetireAt = useMemo(
@@ -533,6 +548,16 @@ export default function Planner({
       }),
     [scenario, ruleset, lifeTables, healthCostCurve],
   );
+
+  /**
+   * What the big number says. The confidence-based age when the simulation has produced
+   * one, and the central-path age until then - which is honest as long as the line
+   * underneath says which of the two is on screen.
+   */
+  const headlineAge = confidenceAge?.value ?? canRetireAt.age;
+  // A couple's two ages move together, so the partner's follows the same gap.
+  const partnerGap =
+    canRetireAt.people.length > 1 ? canRetireAt.people[1].age - canRetireAt.people[0].age : 0;
 
 
   const download = () => {
@@ -688,18 +713,45 @@ export default function Planner({
                 On these numbers, spending {money(form.retirementSpending)} a year
               </div>
               <div className="mt-1 text-5xl font-semibold tracking-tight">
-                {canRetireAt.age === null ? (
+                {headlineAge === null ? (
                   'No age works'
                 ) : canRetireAt.people.length === 1 ? (
-                  `You could retire at ${canRetireAt.age}`
+                  `You could retire at ${headlineAge}`
                 ) : (
                   // Two people of different ages retiring together do not retire at the
                   // same age, so a couple gets both numbers rather than one.
                   <>
-                    You could retire at {canRetireAt.people[0].age},
+                    You could retire at {headlineAge},
                     <br />
-                    your partner at {canRetireAt.people[1].age}
+                    your partner at {headlineAge + partnerGap}
                   </>
+                )}
+              </div>
+              {/* Which number this is, and what the other one says. The confidence figure
+                  is always the later of the two, and it is the one people should carry
+                  away - so it leads, and the central path is demoted to a caveat. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                {confidenceAge?.value != null ? (
+                  <>
+                    <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      at {Math.round((confidenceAge.achievedProbability ?? conf) * 100)}% confidence
+                    </span>
+                    {canRetireAt.age !== null && canRetireAt.age !== confidenceAge.value && (
+                      <span className="text-slate-700">
+                        {canRetireAt.age} if returns land on the central path every year
+                      </span>
+                    )}
+                  </>
+                ) : busy?.label === 'headline' ? (
+                  <span className="flex items-center gap-2 text-slate-600">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+                    Simulating for a {confidence}% confident answer — showing the central path
+                    meanwhile
+                  </span>
+                ) : (
+                  <span className="text-slate-600">
+                    Central path — the simulation below gives the confident answer
+                  </span>
                 )}
               </div>
               <p className="mt-2 max-w-2xl text-sm text-slate-700">
@@ -741,9 +793,9 @@ export default function Planner({
                 )}
               </p>
               <p className="mt-3 text-xs text-slate-600">
-                This assumes returns land on the central path every year, which they will not.
-                It is the age that works if things go to plan, not the age that works most of
-                the time — run the simulations below for that answer, which is always later.
+                {confidenceAge?.value != null
+                  ? `The age that works most of the time, from ${confidenceAge.verifyRuns.toLocaleString()} simulated futures. The central-path age assumes returns land on the average every single year, which they will not — that is why it is the lower of the two.`
+                  : 'The central path assumes returns land on the average every year, which they will not. The simulated answer is on its way and will be later.'}
               </p>
             </div>
           )}
@@ -941,65 +993,73 @@ export default function Planner({
                   %
                 </label>
                 <button
-                  disabled={busy !== null}
-                  onClick={() =>
-                    run('simulating', () =>
-                      setMc(monteCarlo(scenario, ruleset, ds, { runs: 5000, seed: 42 })),
-                    )
-                  }
+                  disabled={busy !== null && busy.label !== 'headline'}
+                  onClick={async () => {
+                    const reply = await send(
+                      { kind: 'simulate', scenario, ruleset, datasets: ds, runs: 5000 },
+                      'simulating',
+                    );
+                    if (reply.kind === 'simulate') setMc(reply.result);
+                  }}
                   className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
                 >
                   Run 5,000 simulations
                 </button>
                 <button
-                  disabled={busy !== null}
-                  onClick={() =>
-                    run('solving spend', () =>
-                      setSpendSolve(
-                        maxSustainableSpend(scenario, ruleset, ds, {
-                          confidence: conf,
-                          searchRuns: 600,
-                          runs: 2000,
-                          seed: 42,
-                        }),
-                      ),
-                    )
-                  }
+                  disabled={busy !== null && busy.label !== 'headline'}
+                  onClick={async () => {
+                    const reply = await send(
+                      {
+                        kind: 'maxSpend',
+                        scenario,
+                        ruleset,
+                        datasets: ds,
+                        confidence: conf,
+                        searchRuns: 600,
+                        runs: 2000,
+                      },
+                      'solving spend',
+                    );
+                    if (reply.kind === 'maxSpend') setSpendSolve(reply.result);
+                  }}
                   className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
                 >
                   Max sustainable spend
                 </button>
                 <button
-                  disabled={busy !== null}
-                  onClick={() =>
-                    run('solving age', () =>
-                      setAgeSolve(
-                        earliestRetirementAge(scenario, ruleset, ds, {
-                          confidence: conf,
-                          searchRuns: 600,
-                          runs: 2000,
-                          seed: 42,
-                        }),
-                      ),
-                    )
-                  }
+                  disabled={busy !== null && busy.label !== 'headline'}
+                  onClick={async () => {
+                    const reply = await send(
+                      {
+                        kind: 'earliestAge',
+                        scenario,
+                        ruleset,
+                        datasets: ds,
+                        confidence: conf,
+                        searchRuns: 600,
+                        runs: 2000,
+                      },
+                      'solving age',
+                    );
+                    if (reply.kind === 'earliestAge') setAgeSolve(reply.result);
+                  }}
                   className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
                 >
                   Earliest retirement age
                 </button>
-                {busy ? (
+                {busy && busy.label !== 'headline' ? (
                   <span className="flex items-center gap-2 rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900">
                     <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
-                    {busy === 'simulating'
+                    {busy.label === 'simulating'
                       ? 'Running 5,000 simulations'
-                      : busy === 'solving spend'
+                      : busy.label === 'solving spend'
                         ? 'Searching for the highest sustainable spend'
                         : 'Searching for the earliest retirement age'}
-                    … the page will not respond until it finishes.
+                    … you can keep editing while it runs.
                   </span>
                 ) : (
                   <span className="text-xs text-slate-500">
-                    Runs in this browser — takes a few seconds and pauses the page while it works.
+                    Runs in a background thread in this browser — the page keeps working while it does.
                   </span>
                 )}
               </div>

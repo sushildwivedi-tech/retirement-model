@@ -224,11 +224,20 @@ success probability, the distribution of failure ages, and percentile bands for 
 chart. Every run is seeded, so the same inputs always give the same answer — a probability
 that jitters between reloads invites re-rolling until you like the number.
 
-Everything runs on the browser's main thread, so a 5,000-path run pauses the page for
-several seconds — a few seconds on a warm desktop browser, longer on the first run while
-the JIT warms up. A prominent running indicator is painted before the thread locks up, and
-the work is scheduled so that it still starts if the tab is in the background. Moving it to
-a Web Worker is the obvious next improvement.
+Monte Carlo and both solvers run in a **Web Worker**, so the page keeps responding while
+they work. Every job carries an id and only the newest id's reply is kept, which is the
+whole cancellation story: a run superseded by a keystroke cannot be interrupted, but its
+output is discarded rather than landing late and overwriting a fresher answer.
+
+**The headline is the confident answer.** On the example the central path says 52 and the
+simulation says 58 — and 52 is the number people would have remembered. So the front page
+now solves for the confidence-based age in the background after every edit, shows the
+central path with a spinner meanwhile, and says plainly which of the two is on screen. The
+background solve uses fewer paths than the button, because it has to feel quick and it is
+seeded, so the same inputs always give the same answer.
+
+The comparison page keeps the central-path figure and is labelled as such: four scenarios'
+worth of goal-seek is not worth the wait there.
 
 Two solvers bisect on that probability:
 

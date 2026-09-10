@@ -150,7 +150,7 @@ export default function Planner({
   }, [scenario, ruleset, ds]);
 
   if (!result.ok) {
-    return <main className="p-8 text-red-700">Could not run the projection: {result.error}</main>;
+    return <main className="p-8 text-bad">Could not run the projection: {result.error}</main>;
   }
 
   const r = result.value;
@@ -570,39 +570,52 @@ export default function Planner({
   };
 
   return (
-    <main className="mx-auto max-w-[1400px] p-6 text-slate-900">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">Retirement model</h1>
-        <p className="text-sm text-slate-600">
-          Australian tax, super, Age Pension, health and longevity — with simulation. Rules:{' '}
-          {r.ruleset}
-        </p>
-      </header>
+    <>
+      {/* The bar carries identity, provenance and navigation, so the content column can
+          start with the answer rather than with furniture. */}
+      <div className="app-bar">
+        <div className="app-bar-inner">
+          <span className="brand">Retirement model</span>
+          <nav className="seg">
+            <Link href="/" className={`seg-item ${view === 'answer' ? 'seg-item-on' : ''}`}>
+              When can you retire?
+            </Link>
+            <Link href="/detail" className={`seg-item ${view === 'detail' ? 'seg-item-on' : ''}`}>
+              The detail
+            </Link>
+            <Link href="/compare" className="seg-item">
+              Compare
+            </Link>
+          </nav>
+          <span className="stamp ml-auto hidden sm:inline">{r.ruleset}</span>
+        </div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="min-w-0 space-y-5">
+      <main className="page">
+      <div className="layout">
+        <aside className="sidebar min-w-0 space-y-4">
           {/* A visible statement of WHOSE numbers these are. Without it, a browser copy
               kept from an earlier visit looks indistinguishable from the example, and
               there is no obvious way back. */}
           {usingSaved && (
-            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm">
-              <div className="font-medium text-emerald-900">Showing your figures</div>
-              <p className="mt-1 text-xs text-emerald-900/80">
+            <div className="rounded-lg border border-good-line bg-good-bg p-3 text-sm">
+              <div className="font-medium text-good">Showing your figures</div>
+              <p className="mt-1 text-xs text-good/80">
                 Kept while this tab is open, and shared across all three pages. Opening the
                 app again starts from the example — use Export below to keep a scenario.
               </p>
               <button
                 onClick={resetInputs}
-                className="mt-2 rounded border border-emerald-400 bg-white px-2 py-1 text-xs hover:bg-emerald-100"
+                className="mt-2 rounded border border-good-line bg-surface px-2 py-1 text-xs hover:bg-good-bg"
               >
                 Start again from the example
               </button>
             </div>
           )}
           <InputsPanel form={form} setForm={setForm} onChange={clearResults} ruleset={ruleset} />
-          <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+          <div className="card-quiet text-sm">
             <div className="font-medium">Your details</div>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-ink-mute">
               {usingSaved
                 ? 'Kept for this visit only, in this tab. Nothing is sent anywhere — there is no server to send it to.'
                 : 'These are illustrative example figures. Edit anything and it becomes yours, for as long as this tab is open.'}
@@ -610,52 +623,52 @@ export default function Planner({
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 onClick={exportInputs}
-                className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                className="btn btn-sm"
               >
                 Export
               </button>
-              <label className="cursor-pointer rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+              <label className="btn btn-sm cursor-pointer">
                 Import
                 <input type="file" accept="application/json" className="hidden" onChange={importInputs} />
               </label>
               <button
                 onClick={resetInputs}
-                className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                className="btn btn-sm"
               >
                 Reset to example
               </button>
             </div>
-            {importError && <p className="mt-2 text-xs text-red-700">{importError}</p>}
+            {importError && <p className="mt-2 text-xs text-bad">{importError}</p>}
           </div>
-          <details className="rounded-lg border border-slate-200 bg-white p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <details className="card-quiet">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-ink-mute">
               What the colours mean
             </summary>
-            <ul className="mt-2 space-y-1 text-xs text-slate-700">
+            <ul className="mt-2 space-y-1 text-xs text-ink-soft">
               <li className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded border border-slate-300 bg-white" />
+                <span className="inline-block h-3 w-3 rounded border border-rule bg-surface" />
                 Your own figures — edit freely
               </li>
               <li className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded border border-amber-300 bg-amber-50" />
+                <span className="inline-block h-3 w-3 rounded border border-assume-line bg-assume-bg" />
                 Assumptions — editable, but a modelling choice, not a fact
               </li>
               <li className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded border border-sky-300 bg-sky-50" />
+                <span className="inline-block h-3 w-3 rounded border border-source-line bg-source-bg" />
                 Public data — sourced, so not editable
               </li>
               <li className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded border border-indigo-300 bg-indigo-50" />
+                <span className="inline-block h-3 w-3 rounded border border-calc-line bg-calc-bg" />
                 Calculated by the model
               </li>
             </ul>
           </details>
 
-          <details className="rounded-lg border border-sky-300 bg-sky-50 p-3">
+          <details className="rounded-lg border border-source-line bg-source-bg p-3">
             <summary className="cursor-pointer text-sm font-medium">
               Public data used ({sourcedFacts.length} figures)
             </summary>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-ink-mute">
               Fetched from the source named against each, on {ruleset.retrievedAt}. These are
               not inputs — change them by updating the ruleset, not the form.
             </p>
@@ -663,10 +676,10 @@ export default function Planner({
               {sourcedFacts.map((fact) => (
                 <div key={fact.label} className="text-xs">
                   <dt className="flex justify-between gap-2">
-                    <span className="text-slate-700">{fact.label}</span>
+                    <span className="text-ink-soft">{fact.label}</span>
                     <span className="font-medium tabular-nums">{fact.value}</span>
                   </dt>
-                  <dd className="text-[11px] text-slate-500">{fact.source}</dd>
+                  <dd className="text-[11px] text-ink-mute">{fact.source}</dd>
                 </div>
               ))}
             </dl>
@@ -676,43 +689,21 @@ export default function Planner({
 
         {/* min-w-0: without it the grid column takes its width from the widest child -
             the fourteen-column year table - and the whole page scrolls sideways. */}
-        <section className="min-w-0 space-y-6">
-          <nav className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            <Link
-              href="/"
-              className={`rounded px-3 py-1.5 ${
-                view === 'answer' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              When can you retire?
-            </Link>
-            <Link
-              href="/detail"
-              className={`rounded px-3 py-1.5 ${
-                view === 'detail' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              The detail
-            </Link>
-            <Link href="/compare" className="rounded px-3 py-1.5 text-slate-600 hover:bg-slate-50">
-              Compare
-            </Link>
-          </nav>
-
+        <section className="content min-w-0 space-y-5">
           {view === 'answer' && (
             <div
-              className={`rounded-lg border p-6 ${
+              className={`hero ${
                 canRetireAt.age === null
-                  ? 'border-red-300 bg-red-50'
+                  ? 'hero-bad'
                   : canRetireAt.plannedAgeWorks
-                    ? 'border-emerald-300 bg-emerald-50'
-                    : 'border-amber-300 bg-amber-50'
+                    ? 'hero-good'
+                    : 'hero-warn'
               }`}
             >
-              <div className="text-xs uppercase tracking-wide text-slate-600">
+              <div className="eyebrow">
                 On these numbers, spending {money(form.retirementSpending)} a year
               </div>
-              <div className="mt-1 text-5xl font-semibold tracking-tight">
+              <div className="hero-number mt-2">
                 {headlineAge === null ? (
                   'No age works'
                 ) : canRetireAt.people.length === 1 ? (
@@ -730,31 +721,31 @@ export default function Planner({
               {/* Which number this is, and what the other one says. The confidence figure
                   is always the later of the two, and it is the one people should carry
                   away - so it leads, and the central path is demoted to a caveat. */}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                 {confidenceAge?.value != null ? (
                   <>
-                    <span className="rounded bg-white/70 px-2 py-0.5 text-xs font-medium text-slate-700">
+                    <span className="chip chip-calc">
                       at {Math.round((confidenceAge.achievedProbability ?? conf) * 100)}% confidence
                     </span>
                     {canRetireAt.age !== null && canRetireAt.age !== confidenceAge.value && (
-                      <span className="text-slate-700">
+                      <span className="muted">
                         {canRetireAt.age} if returns land on the central path every year
                       </span>
                     )}
                   </>
                 ) : busy?.label === 'headline' ? (
-                  <span className="flex items-center gap-2 text-slate-600">
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+                  <span className="muted flex items-center gap-2">
+                    <span className="spinner" />
                     Simulating for a {confidence}% confident answer — showing the central path
                     meanwhile
                   </span>
                 ) : (
-                  <span className="text-slate-600">
+                  <span className="muted">
                     Central path — the simulation below gives the confident answer
                   </span>
                 )}
               </div>
-              <p className="mt-2 max-w-2xl text-sm text-slate-700">
+              <p className="lede mt-3">
                 {canRetireAt.age === null ? (
                   <>
                     Even working to {form.planToAge} does not fund this level of spending. Lower
@@ -792,7 +783,7 @@ export default function Planner({
                   </>
                 )}
               </p>
-              <p className="mt-3 text-xs text-slate-600">
+              <p className="help mt-4 mb-0">
                 {confidenceAge?.value != null
                   ? `The age that works most of the time, from ${confidenceAge.verifyRuns.toLocaleString()} simulated futures. The central-path age assumes returns land on the average every single year, which they will not — that is why it is the lower of the two.`
                   : 'The central path assumes returns land on the average every year, which they will not. The simulated answer is on its way and will be later.'}
@@ -855,16 +846,16 @@ export default function Planner({
             </div>
 
             {card && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+              <div className="rounded-lg border border-good-line bg-good-bg p-4 text-sm">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <h2 className="font-semibold text-emerald-900">
+                  <h2 className="font-semibold text-good">
                     Commonwealth Seniors Health Card from age {card.age}
                   </h2>
-                  <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                  <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-good">
                     calculated
                   </span>
                 </div>
-                <p className="mt-1 text-emerald-900/80">
+                <p className="mt-1 text-good/80">
                   Of pension age, no pension payable, and income under{' '}
                   {money(ruleset.seniorsHealthCard.value.incomeLimitSingle)} single (
                   {money(ruleset.seniorsHealthCard.value.incomeLimitCoupleCombined)} for a couple).
@@ -875,16 +866,16 @@ export default function Planner({
             )}
 
             {exemption && (
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm">
+              <div className="rounded-lg border border-calc-line bg-calc-bg p-4 text-sm">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <h2 className="font-semibold text-indigo-900">
+                  <h2 className="font-semibold text-calc">
                     {money(exemption.amount)} of super is invisible to the Age Pension tests
                   </h2>
-                  <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                  <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-calc">
                     calculated
                   </span>
                 </div>
-                <p className="mt-1 text-indigo-900/80">
+                <p className="mt-1 text-calc/80">
                   Money in accumulation phase is not assessed until the person holding it reaches
                   Age Pension age. {exemption.who} {exemption.who === 'Your partner' ? 'is' : 'are'}{' '}
                   {exemption.age}, so this balance is exempt from both the income and assets tests
@@ -894,14 +885,14 @@ export default function Planner({
               </div>
             )}
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="card">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-semibold">Balances over time</h2>
+                <h2 className="section-title">Balances over time</h2>
                 {/* wraps: three buttons plus a heading do not fit a narrow phone in one row */}
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <button
                     onClick={() => setReal(!real)}
-                    className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"
+                    className="btn btn-sm"
                   >
                     {real ? "Today's dollars" : 'Future dollars'}
                   </button>
@@ -911,14 +902,14 @@ export default function Planner({
                       aria-pressed={showHome}
                       className={`rounded border px-2 py-1 ${
                         showHome
-                          ? 'border-slate-400 bg-slate-900 text-white'
-                          : 'border-slate-300 hover:bg-slate-50'
+                          ? 'border-rule bg-ink text-white'
+                          : 'border-rule hover:bg-sunk'
                       }`}
                     >
                       {showHome ? 'Hide home' : 'Show home'}
                     </button>
                   )}
-                  <button onClick={download} className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">
+                  <button onClick={download} className="btn btn-sm">
                     Export CSV
                   </button>
                 </div>
@@ -932,14 +923,14 @@ export default function Planner({
               />
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="card">
               <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="font-semibold">What you spend, and on what</h2>
-                <span className="text-xs text-slate-500">
+                <h2 className="section-title">What you spend, and on what</h2>
+                <span className="text-xs text-ink-mute">
                   {real ? "today's dollars" : 'future dollars'}
                 </span>
               </div>
-              <p className="mb-3 text-xs text-slate-600">
+              <p className="help mt-0">
                 Baseline spending steps down through the go-go, slow-go and no-go phases while
                 health costs climb with age. The green line is the Age Pension.
               </p>
@@ -947,9 +938,9 @@ export default function Planner({
             </div>
 
             {r.longevity.length > 0 && (
-              <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+              <div className="rounded-lg border border-rule bg-surface p-4 text-sm">
                 <h2 className="mb-2 font-semibold">Longevity (Australian Life Tables 2020–22)</h2>
-                <ul className="space-y-1 text-slate-700">
+                <ul className="space-y-1 text-ink-soft">
                   {r.longevity.map((l) => (
                     <li key={l.personId}>
                       <span className="font-medium">
@@ -962,7 +953,7 @@ export default function Planner({
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-ink-mute">
                   Period tables: they hold today&apos;s mortality fixed and ignore future
                   improvement, so they understate lifespan — the direction that makes money look
                   like it lasts.
@@ -974,16 +965,16 @@ export default function Planner({
 
           {view === 'answer' && (
             <>
-            <div className="rounded-lg border border-indigo-200 bg-white p-4">
+            <div className="card card-calc">
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <h2 className="font-semibold">How confident can you be?</h2>
-                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                <h2 className="section-title">How confident can you be?</h2>
+                <span className="chip chip-calc">
                   calculated
                 </span>
                 <label className="flex items-center gap-1 text-sm">
                   Target confidence
                   <input
-                    className="w-16 rounded border border-slate-300 px-2 py-1 text-right tabular-nums"
+                    className="w-16 rounded border border-rule px-2 py-1 text-right tabular-nums"
                     value={confidence}
                     onChange={(e) => {
                       setConfidence(Number(e.target.value.replace(/[^0-9]/g, '')) || 0);
@@ -1002,7 +993,7 @@ export default function Planner({
                     );
                     if (reply.kind === 'simulate') setMc(reply.result);
                   }}
-                  className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                  className="btn btn-primary"
                 >
                   Run 5,000 simulations
                 </button>
@@ -1023,7 +1014,7 @@ export default function Planner({
                     );
                     if (reply.kind === 'maxSpend') setSpendSolve(reply.result);
                   }}
-                  className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="btn"
                 >
                   Max sustainable spend
                 </button>
@@ -1044,13 +1035,13 @@ export default function Planner({
                     );
                     if (reply.kind === 'earliestAge') setAgeSolve(reply.result);
                   }}
-                  className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="btn"
                 >
                   Earliest retirement age
                 </button>
                 {busy && busy.label !== 'headline' ? (
-                  <span className="flex items-center gap-2 rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900">
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
+                  <span className="flex items-center gap-2 rounded bg-assume-bg px-3 py-1.5 text-sm font-medium text-assume">
+                    <span className="spinner" />
                     {busy.label === 'simulating'
                       ? 'Running 5,000 simulations'
                       : busy.label === 'solving spend'
@@ -1059,7 +1050,7 @@ export default function Planner({
                     … you can keep editing while it runs.
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-ink-mute">
                     Runs in a background thread in this browser — the page keeps working while it does.
                   </span>
                 )}
@@ -1090,7 +1081,7 @@ export default function Planner({
                     <span className="text-3xl font-semibold">
                       {(mc.successProbability * 100).toFixed(0)}%
                     </span>
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-ink-mute">
                       of {mc.runs.toLocaleString()} simulated futures never ran out
                       {mc.medianFailureAge !== null && (
                         <> — the ones that did ran out at a median age of {mc.medianFailureAge}</>
@@ -1099,28 +1090,28 @@ export default function Planner({
                     </span>
                   </div>
                   <FanChart fan={mc.fan} />
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600">
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-ink-mute">
                     {mc.notes.map((n) => (
                       <li key={n}>{n}</li>
                     ))}
                   </ul>
                 </>
               ) : (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-ink-mute">
                   The projection above is a single path. Run the simulations to see the spread of
                   outcomes and a probability of success.
                 </p>
               )}
             </div>
 
-            <div className="rounded-lg border border-indigo-200 bg-white p-4">
+            <div className="card card-calc">
               <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="font-semibold">What would move the needle</h2>
-                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                <h2 className="section-title">What would move the needle</h2>
+                <span className="chip chip-calc">
                   calculated
                 </span>
               </div>
-              <p className="mb-3 text-xs text-slate-600">
+              <p className="help mt-0">
                 Each row re-runs the whole projection with one change, against your current plan
                 {r.moneyRunsOutAge === null
                   ? ', which already lasts the full plan.'
@@ -1128,16 +1119,16 @@ export default function Planner({
                 Best first. Apply takes the change into your inputs.
               </p>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-xs uppercase text-slate-600">
+                <table className="table">
+                  <thead className="text-xs uppercase text-ink-mute">
                     <tr>
-                      <th className="px-2 py-1 text-left font-medium">Change</th>
-                      <th className="px-2 py-1 text-right font-medium">Money lasts to</th>
-                      <th className="px-2 py-1 text-right font-medium">Difference</th>
-                      <th className="px-2 py-1 text-right font-medium">
+                      <th className="text-left">Change</th>
+                      <th className="text-right">Money lasts to</th>
+                      <th className="text-right">Difference</th>
+                      <th className="text-right">
                         Savings left at {form.planToAge}
                       </th>
-                      <th className="px-2 py-1" />
+                      <th className="" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1145,14 +1136,14 @@ export default function Planner({
                       const o = l.outcome;
                       const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
                       return (
-                        <tr key={l.label} className="border-t border-slate-100 align-top">
+                        <tr key={l.label} className="border-t border-rule-soft align-top">
                           <td className="px-2 py-2">
-                            <div className="font-medium text-slate-800">{l.label}</div>
-                            <div className="text-xs text-slate-600">{l.detail}</div>
+                            <div className="font-medium text-ink">{l.label}</div>
+                            <div className="text-xs text-ink-mute">{l.detail}</div>
                           </td>
                           <td className="px-2 py-2 text-right tabular-nums">
                             {o.runsOutAge === null ? (
-                              <span className="font-medium text-emerald-700">never runs out</span>
+                              <span className="font-medium text-good">never runs out</span>
                             ) : (
                               `age ${o.runsOutAge}`
                             )}
@@ -1161,13 +1152,13 @@ export default function Planner({
                             className={`px-2 py-2 text-right font-medium tabular-nums ${
                               l.differenceOverride
                                 ? l.differenceOverride.includes('less')
-                                  ? 'text-emerald-700'
-                                  : 'text-red-700'
+                                  ? 'text-good'
+                                  : 'text-bad'
                                 : better
-                                  ? 'text-emerald-700'
+                                  ? 'text-good'
                                   : (o.deltaYears ?? 0) < 0
-                                    ? 'text-red-700'
-                                    : 'text-slate-400'
+                                    ? 'text-bad'
+                                    : 'text-ink-mute'
                             }`}
                           >
                             {l.differenceOverride
@@ -1182,7 +1173,7 @@ export default function Planner({
                                     ? 'no change'
                                     : `${o.deltaYears} yrs`}
                           </td>
-                          <td className="px-2 py-2 text-right tabular-nums text-slate-600">
+                          <td className="px-2 py-2 text-right tabular-nums text-ink-mute">
                             {money(o.liquidEstateReal)}
                           </td>
                           <td className="px-2 py-2 text-right">
@@ -1194,7 +1185,7 @@ export default function Planner({
                                 setForm((f) => withChange(f, l.change, ruleset));
                                 clearResults();
                               }}
-                              className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                              className="btn btn-sm"
                             >
                               Apply
                             </button>
@@ -1205,7 +1196,7 @@ export default function Planner({
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-ink-mute">
                 Ranked by outcome, not by what the change costs you — working five more years
                 and spending $10,000 less are not equivalent sacrifices, and only you can weigh
                 them. These are also single deterministic paths, so they compare like with like
@@ -1221,13 +1212,13 @@ export default function Planner({
             <Panel title="Not modelled yet — these numbers are incomplete" tone="warn" items={r.notModelled} />
             {r.warnings.length > 0 && <Panel title="Assumptions and flags" tone="info" items={r.warnings} />}
 
-            <div className="rounded-lg border border-slate-200 bg-white">
-              <h2 className="border-b border-slate-200 p-3 font-semibold">
+            <div className="rounded-lg border border-rule bg-surface">
+              <h2 className="border-b border-rule p-3 font-semibold">
                 Projection ({real ? "today's dollars" : 'future dollars'})
               </h2>
               <div className="max-h-[520px] overflow-auto">
-                <table className="w-full text-right text-sm tabular-nums">
-                  <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-600">
+                <table className="table table-dense text-right">
+                  <thead className="sticky top-0 bg-surface">
                     <tr>
                       {[
                         'Year',
@@ -1245,7 +1236,7 @@ export default function Planner({
                         'Accessible',
                         'Short',
                       ].map((h) => (
-                        <th key={h} className="whitespace-nowrap px-2 py-2 font-medium">
+                        <th key={h} className="text-right">
                           {h}
                         </th>
                       ))}
@@ -1255,21 +1246,21 @@ export default function Planner({
                     {rows.map((row) => (
                       <tr
                         key={row.planYear}
-                        className={`border-t border-slate-100 ${row.shortfall > 0 ? 'bg-red-50' : ''} ${
-                          form.hasPartner && !row.alive.includes(PARTNER_ID) ? 'text-slate-500' : ''
+                        className={`border-t border-rule-soft ${row.shortfall > 0 ? 'bg-bad-bg' : ''} ${
+                          form.hasPartner && !row.alive.includes(PARTNER_ID) ? 'text-ink-mute' : ''
                         }`}
                         title={row.events.join(' ')}
                       >
                         <td className="px-2 py-1 text-left">{row.calendarYear}</td>
-                        <td className="px-2 py-1">
+                        <td className="">
                           {row.ages[PRIMARY_ID]}
                           {form.hasPartner && (
-                            <span className="text-slate-400">/{row.ages[PARTNER_ID]}</span>
+                            <span className="text-ink-mute">/{row.ages[PARTNER_ID]}</span>
                           )}
                         </td>
-                        <td className="px-2 py-1">{money(row.income.salary)}</td>
+                        <td className="">{money(row.income.salary)}</td>
                         <td
-                          className="px-2 py-1 text-emerald-700"
+                          className="px-2 py-1 text-good"
                           title={
                             row.agePension > 0
                               ? `Cut back by the ${row.agePensionDetail.bindingTest} test. Deemed income ${money(row.agePensionDetail.deemedIncome)} against a full rate of ${money(row.agePensionDetail.maxRate)}.`
@@ -1279,20 +1270,20 @@ export default function Planner({
                           {money(row.agePension)}
                         </td>
                         <td
-                          className="px-2 py-1"
+                          className=""
                           title={`Personal ${money(row.tax.personal)}, super earnings ${money(row.tax.superEarnings)}, contributions ${money(row.tax.superContributions)}`}
                         >
                           {money(row.tax.total)}
                         </td>
-                        <td className="px-2 py-1">{money(row.spending.total)}</td>
-                        <td className="px-2 py-1">{money(row.drawdown.total)}</td>
-                        <td className="px-2 py-1">{money(row.balances.cash)}</td>
-                        <td className="px-2 py-1">{money(row.balances.investments)}</td>
-                        <td className="px-2 py-1">{money(row.balances.superAccumulation)}</td>
-                        <td className="px-2 py-1">{money(row.balances.superPension)}</td>
-                        <td className="px-2 py-1 text-slate-400">{money(row.balances.primaryResidence)}</td>
+                        <td className="">{money(row.spending.total)}</td>
+                        <td className="">{money(row.drawdown.total)}</td>
+                        <td className="">{money(row.balances.cash)}</td>
+                        <td className="">{money(row.balances.investments)}</td>
+                        <td className="">{money(row.balances.superAccumulation)}</td>
+                        <td className="">{money(row.balances.superPension)}</td>
+                        <td className="px-2 py-1 text-ink-mute">{money(row.balances.primaryResidence)}</td>
                         <td className="px-2 py-1 font-medium">{money(row.balances.accessible)}</td>
-                        <td className="px-2 py-1 text-red-700">{row.shortfall > 0 ? money(row.shortfall) : ''}</td>
+                        <td className="px-2 py-1 text-bad">{row.shortfall > 0 ? money(row.shortfall) : ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1302,7 +1293,7 @@ export default function Planner({
             </>
           )}
 
-          <p className="pb-8 text-xs text-slate-500">
+          <p className="pb-8 text-xs text-ink-mute">
             General information only, not personal financial advice. Super guarantee {pct(ruleset.super.guaranteeRate.value)},
             concessional cap {money(ruleset.super.concessionalCap.value)} and preservation age come from{' '}
             <a className="underline" href={ruleset.super.guaranteeRate.url ?? '#'}>
@@ -1312,7 +1303,8 @@ export default function Planner({
           </p>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -1326,15 +1318,15 @@ function SolveCard({
   result: GoalSeekResult<number>;
 }) {
   return (
-    <div className="rounded-lg border border-indigo-300 bg-indigo-50 p-3">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="rounded-lg border border-calc-line bg-calc-bg p-3">
+      <div className="eyebrow">{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
-      <div className="text-xs text-slate-600">
+      <div className="text-xs text-ink-mute">
         measured at {(result.achievedProbability * 100).toFixed(1)}% over{' '}
         {result.verifyRuns.toLocaleString()} runs ({(result.elapsedMs / 1000).toFixed(1)}s)
       </div>
       {result.notes.map((n) => (
-        <p key={n} className="mt-1 text-xs text-amber-800">
+        <p key={n} className="mt-1 text-xs text-assume">
           {n}
         </p>
       ))}
@@ -1343,27 +1335,24 @@ function SolveCard({
 }
 
 function Card({ label, value, note, tone }: { label: string; value: string; note: string; tone: 'good' | 'bad' | 'neutral' }) {
-  const ring =
-    tone === 'bad'
-      ? 'border-red-300 bg-red-50'
-      : tone === 'good'
-        ? 'border-emerald-300 bg-emerald-50'
-        : 'border-slate-200 bg-white';
+  const skin = tone === 'bad' ? 'card-bad' : tone === 'good' ? 'card-good' : '';
   return (
-    <div className={`rounded-lg border p-4 ${ring}`}>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-      <div className="text-xs text-slate-600">{note}</div>
+    <div className={`card ${skin}`}>
+      <div className="eyebrow">{label}</div>
+      <div className="mt-1.5 font-display text-[1.7rem] font-semibold leading-tight tracking-tight">
+        {value}
+      </div>
+      <div className="help mt-1 mb-0">{note}</div>
     </div>
   );
 }
 
 function Panel({ title, items, tone }: { title: string; items: string[]; tone: 'warn' | 'info' }) {
-  const c = tone === 'warn' ? 'border-amber-300 bg-amber-50' : 'border-sky-300 bg-sky-50';
+  const c = tone === 'warn' ? 'card-assume' : 'card-source';
   return (
-    <details open className={`rounded-lg border p-4 ${c}`}>
-      <summary className="cursor-pointer font-semibold">{title}</summary>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+    <details open className={`card ${c}`}>
+      <summary className="details-summary section-title text-base">{title}</summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
         {items.map((i) => (
           <li key={i}>{i}</li>
         ))}

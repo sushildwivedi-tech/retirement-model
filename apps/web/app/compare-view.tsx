@@ -265,7 +265,7 @@ export default function CompareView({
   };
 
   const summary = (r: (typeof results)[number], i: number) => {
-    if (!r.ok) return <p className="text-sm text-red-700">{r.error}</p>;
+    if (!r.ok) return <p className="text-sm text-bad">{r.error}</p>;
     const p: ProjectionResult = r.projection;
     const last = p.rows.at(-1);
     const liquid = last ? toRealRow(last).balances.total - toRealRow(last).balances.primaryResidence : 0;
@@ -293,11 +293,14 @@ export default function CompareView({
       ],
     ];
     return (
-      <dl className="space-y-1 text-sm">
+      <dl className="text-sm">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3 border-b border-slate-100 py-1">
-            <dt className="text-slate-600">{k}</dt>
-            <dd className="text-right font-medium tabular-nums">{v}</dd>
+          <div
+            key={k}
+            className="flex justify-between gap-3 border-b border-rule-soft py-1.5 last:border-0"
+          >
+            <dt className="text-ink-mute">{k}</dt>
+            <dd className="figure text-right font-medium">{v}</dd>
           </div>
         ))}
       </dl>
@@ -305,32 +308,39 @@ export default function CompareView({
   };
 
   return (
-    <main className="mx-auto max-w-[1400px] p-6 text-slate-900">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">
+    <>
+      <div className="app-bar">
+        <div className="app-bar-inner">
+          <span className="brand">Retirement model</span>
+          <nav className="seg">
+            <Link href="/" className="seg-item">
+              When can you retire?
+            </Link>
+            <Link href="/detail" className="seg-item">
+              The detail
+            </Link>
+            <span className="seg-item seg-item-on">Compare</span>
+          </nav>
+          <span className="stamp ml-auto hidden sm:inline">{ruleset.id}</span>
+        </div>
+      </div>
+
+      <main className="page">
+      <header className="mb-5">
+        <h1 className="font-display text-[1.6rem] font-semibold tracking-tight">
           Compare {['', 'one plan', 'two plans', 'three plans', 'four plans'][sides.length] ?? `${sides.length} plans`}
         </h1>
-        <p className="text-sm text-slate-600">
-          Both start from your saved plan. Change either side and the outcomes update.
+        <p className="lede mt-1">
+          Every scenario starts from your saved plan. Change any of them and the outcomes update.
         </p>
       </header>
 
-      <nav className="mb-4 flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-sm">
-        <Link href="/" className="rounded px-3 py-1.5 text-slate-600 hover:bg-slate-50">
-          When can you retire?
-        </Link>
-        <Link href="/detail" className="rounded px-3 py-1.5 text-slate-600 hover:bg-slate-50">
-          The detail
-        </Link>
-        <span className="rounded bg-slate-900 px-3 py-1.5 text-white">Compare</span>
-      </nav>
-
       <div className={`mb-4 grid gap-4 ${SUMMARY_GRID[sides.length] ?? 'lg:grid-cols-2'}`}>
         {sides.map((side, i) => (
-          <div key={i} className="rounded-lg border border-indigo-200 bg-white p-4">
-            <div className="mb-2 flex items-center gap-1">
+          <div key={i} className="card card-calc">
+            <div className="mb-3 flex items-center gap-1.5">
               <input
-                className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-semibold"
+                className="input w-full !text-left font-semibold"
                 value={side.name}
                 onChange={(e) => rename(i, e.target.value)}
               />
@@ -338,7 +348,7 @@ export default function CompareView({
                 title="Duplicate this scenario"
                 disabled={sides.length >= MAX_SIDES}
                 onClick={() => duplicateSide(i)}
-                className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-40"
+                className="btn btn-sm"
               >
                 Copy
               </button>
@@ -346,7 +356,7 @@ export default function CompareView({
                 title="Remove this scenario"
                 disabled={sides.length <= MIN_SIDES}
                 onClick={() => removeSide(i)}
-                className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-40"
+                className="btn btn-sm"
               >
                 ✕
               </button>
@@ -356,18 +366,18 @@ export default function CompareView({
         ))}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="card-quiet mb-4 flex flex-wrap items-center gap-2.5">
         <button
           disabled={busy}
           onClick={runAll}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="btn btn-primary"
         >
           Run {runsPerScenario(sides.length).toLocaleString()} simulations on each
         </button>
         <button
           disabled={sides.length >= MAX_SIDES}
           onClick={addSide}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-40"
+          className="btn"
         >
           Add a scenario
         </button>
@@ -376,40 +386,40 @@ export default function CompareView({
             setSides((prev) => prev.map((s2, j) => (j === 0 ? s2 : { ...s2, form: prev[0].form })));
             clearRuns();
           }}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+          className="btn"
         >
           Reset all to match {sides[0].name}
         </button>
         {busy ? (
-          <span className="flex items-center gap-2 rounded bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900">
-            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
+          <span className="chip chip-assume gap-2 !text-[11px]">
+            <span className="spinner" />
             Running {(runsPerScenario(sides.length) * sides.length).toLocaleString()}{' '}
             simulations across {sides.length} scenarios… this takes several seconds and the
             page will not respond until it finishes.
           </span>
         ) : (
-          <span className="text-xs text-slate-500">
+          <span className="help mb-0">
             {runsPerScenario(sides.length).toLocaleString()} paths each, every scenario facing
             the same sampled futures — so a difference between them is the plan, not luck.
           </span>
         )}
       </div>
 
-      <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 font-semibold">What is different</h2>
+      <div className="mb-4 rounded-lg border border-rule bg-surface p-4">
+        <h2 className="section-title mb-2">What is different</h2>
         {differences.length === 0 ? (
-          <p className="text-sm text-slate-600">
+          <p className="lede">
             {sides.length === 2 ? 'The two plans are identical.' : 'All the plans are identical.'}{' '}
             Change something below.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase text-slate-600">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-2 py-1 text-left font-medium">Input</th>
+                  <th className="text-left">Input</th>
                   {sides.map((side, i) => (
-                    <th key={i} className="px-2 py-1 text-right font-medium">
+                    <th key={i} className="text-right">
                       {side.name}
                     </th>
                   ))}
@@ -417,17 +427,15 @@ export default function CompareView({
               </thead>
               <tbody>
                 {differences.map((d) => (
-                  <tr key={String(d.key)} className="border-t border-slate-100">
-                    <td className="px-2 py-1 text-slate-700">{d.label}</td>
+                  <tr key={String(d.key)}>
+                    <td className="text-ink-soft">{d.label}</td>
                     {d.values.map((v, i) => (
                       <td
                         key={i}
-                        className={`px-2 py-1 text-right tabular-nums ${
+                        className={`text-right ${
                           // Anything that differs from the first column is the change
                           // being tested, so it is the thing worth the reader's eye.
-                          i > 0 && v !== d.values[0]
-                            ? 'font-medium text-indigo-700'
-                            : 'text-slate-700'
+                          i > 0 && v !== d.values[0] ? 'font-medium text-calc' : 'text-ink-soft'
                         }`}
                       >
                         {v}
@@ -441,9 +449,9 @@ export default function CompareView({
         )}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="card">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-slate-700">Editing</span>
+          <span className="eyebrow">Editing</span>
           {/* One form at a time: four full input panels side by side would not fit on
               any realistic screen, and the comparison above is what needs to be side by
               side, not the editing. */}
@@ -451,11 +459,7 @@ export default function CompareView({
             <button
               key={i}
               onClick={() => setEditing(i)}
-              className={`rounded px-3 py-1.5 text-sm ${
-                editing === i
-                  ? 'bg-slate-900 text-white'
-                  : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
-              }`}
+              className={`btn btn-sm ${editing === i ? 'btn-on' : ''}`}
             >
               {side.name}
             </button>
@@ -472,10 +476,11 @@ export default function CompareView({
         </div>
       </div>
 
-      <p className="pb-8 pt-6 text-xs text-slate-500">
+      <p className="help pb-8 pt-6">
         General information only, not personal financial advice. Editing here does not change
         your saved plan.
       </p>
-    </main>
+      </main>
+    </>
   );
 }

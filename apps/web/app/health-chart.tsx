@@ -37,7 +37,7 @@ export default function HealthChart({ rows, personId }: { rows: YearRow[]; perso
     }));
 
   if (data.length === 0) {
-    return <p className="p-4 text-sm text-slate-500">No retirement years in this projection yet.</p>;
+    return <p className="p-4 text-sm text-ink-mute">No retirement years in this projection yet.</p>;
   }
 
   return (

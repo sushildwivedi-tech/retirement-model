@@ -52,6 +52,26 @@ Anything switched on inside a closed section is named on the disclosure row
 ("mortgage $150,000 · aged care stress test"), because a choice you cannot see is a choice
 you did not make.
 
+## The interface
+
+A tool to be operated, not a document to be read, so the craft goes into information
+design rather than ornament. A sticky bar carries identity, the ruleset stamp and the
+three pages, which lets the content column open with the answer instead of furniture. On
+a wide screen the form is a sticky left column that scrolls inside itself, so the answer
+never leaves the screen while you change the numbers that produce it; below the
+breakpoint the order flips and the answer comes first, because there are no columns and
+the reading order is what matters.
+
+Three typefaces, three jobs: **Spectral** for the headline figure and section titles,
+**Public Sans** — drawn for public-sector documents, which is what every regulated number
+here is traced to — for the interface, and **IBM Plex Mono** for every number, so digits
+line up whether they sit in a table, a chip or a field.
+
+**Colour is spent on meaning, not decoration.** The provenance palette below *is* the
+design system; status (good / warning / bad) is a separate axis and never borrows it. One
+element on the page is allowed to be loud — the retirement age — and everything else stays
+quiet so that it can be.
+
 ## Where each number comes from
 
 The UI colour-codes provenance, because a figure you typed and a figure taken from the

@@ -33,7 +33,7 @@ export default function FanChart({ fan }: { fan: FanBand[] }) {
 
   return (
     <div className="h-[360px] w-full">
-      <p className="mb-1 text-xs text-slate-600">
+      <p className="mb-1 text-xs text-ink-mute">
         Shaded band: the 10th to 90th percentile of simulated outcomes. Solid line: the median.
       </p>
       <ResponsiveContainer>

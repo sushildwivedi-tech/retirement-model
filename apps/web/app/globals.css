@@ -1,25 +1,592 @@
 @import "tailwindcss";
 
 /*
- * This tool commits to a single light theme. Dense financial tables need stable
- * contrast, and the create-next-app default flipped the whole page to dark while
- * the components stayed light.
+ * One light theme, on purpose. Dense financial tables want stable contrast, and the
+ * page is a working tool rather than a reading surface - so the ground is a cool, quiet
+ * paper and the colour budget is spent on meaning, not decoration.
+ *
+ * Colour means provenance here, and that is the one design system this app already
+ * had. It is kept exactly, with the hues tuned to sit together:
+ *   white  - your own figures        amber  - assumptions you can change
+ *   sky    - public data, sourced    indigo - calculated by the model
+ * Status (good / warn / bad) is a separate axis and never borrows the accent.
  */
 :root {
   color-scheme: light;
-  --background: #f8fafc;
-  --foreground: #0f172a;
+
+  --paper: #f3f5f8;
+  --surface: #ffffff;
+  --surface-sunk: #e9edf2;
+  --ink: #131a24;
+  --ink-soft: #465262;
+  --ink-mute: #6e7a88;
+  --rule: #d9dfe6;
+  --rule-soft: #e6ebf0;
+
+  --source: #0b6ba8;
+  --source-bg: #e4f0f9;
+  --source-line: #9cc7e6;
+  --assume: #a4560a;
+  --assume-bg: #fbeedd;
+  --assume-line: #ecc48f;
+  --calc: #4038b8;
+  --calc-bg: #e9e8fa;
+  --calc-line: #b9b5ec;
+
+  --good: #1a7a4a;
+  --good-bg: #e2f3ea;
+  --good-line: #9fd6b8;
+  --bad: #a11540;
+  --bad-bg: #fbe6ec;
+  --bad-line: #efa9bd;
+
+  --accent: var(--source);
+  --focus: 0 0 0 3px rgba(11, 107, 168, 0.28);
+  --shadow-1: 0 1px 2px rgba(19, 26, 36, 0.05), 0 1px 1px rgba(19, 26, 36, 0.03);
+  --shadow-2: 0 6px 20px -8px rgba(19, 26, 36, 0.18), 0 2px 4px rgba(19, 26, 36, 0.05);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunk: var(--surface-sunk);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-mute: var(--ink-mute);
+  --color-rule: var(--rule);
+  --color-rule-soft: var(--rule-soft);
+  --color-source: var(--source);
+  --color-source-bg: var(--source-bg);
+  --color-source-line: var(--source-line);
+  --color-assume: var(--assume);
+  --color-assume-bg: var(--assume-bg);
+  --color-assume-line: var(--assume-line);
+  --color-calc: var(--calc);
+  --color-calc-bg: var(--calc-bg);
+  --color-calc-line: var(--calc-line);
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
+  --color-good-line: var(--good-line);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-line: var(--bad-line);
+  --color-accent: var(--accent);
+
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Digits line up in every table and every input without asking. */
+input,
+td,
+th,
+dd,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: 6px;
+}
+
+@layer components {
+  /* ---------- shell ---------- */
+
+  .app-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: color-mix(in srgb, var(--paper) 86%, white);
+    backdrop-filter: saturate(160%) blur(10px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .app-bar-inner {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0.7rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1.5rem;
+  }
+  @media (min-width: 640px) {
+    .app-bar-inner {
+      padding: 0.7rem 1.5rem;
+    }
+  }
+  .brand {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .stamp {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+  @media (min-width: 640px) {
+    .page {
+      padding: 1.5rem;
+    }
+  }
+  .layout {
+    display: grid;
+    gap: 1.25rem;
+  }
+  /*
+   * On a phone the answer comes first and the form follows it. In source order the form
+   * is first, because on a wide screen it is the left column and a keyboard user should
+   * reach the inputs before the output they produce. Below the breakpoint there are no
+   * columns, so the order that matters is the reading one: answer, then the controls
+   * that change it.
+   */
+  @media (max-width: 1023px) {
+    .sidebar {
+      order: 2;
+    }
+    .content {
+      order: 1;
+    }
+  }
+  @media (min-width: 1024px) {
+    .layout {
+      grid-template-columns: 340px minmax(0, 1fr);
+      align-items: start;
+    }
+    /* The form scrolls on its own so the answer never leaves the screen. */
+    .sidebar {
+      position: sticky;
+      top: 4.4rem;
+      max-height: calc(100vh - 5.4rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 2px;
+      scrollbar-width: thin;
+    }
+  }
+
+  /* ---------- navigation ---------- */
+
+  .seg {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--surface-sunk);
+    border-radius: 9px;
+    /* Three page names do not fit a narrow phone; they scroll rather than overflow. */
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg::-webkit-scrollbar {
+    display: none;
+  }
+  .seg-item {
+    padding: 0.4rem 0.85rem;
+    border-radius: 7px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .seg-item:hover {
+    color: var(--ink);
+  }
+  .seg-item-on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+
+  /* ---------- surfaces ---------- */
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow-1);
+  }
+  .card-quiet {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+  }
+  .card-calc {
+    border-color: var(--calc-line);
+  }
+  .card-source {
+    background: var(--source-bg);
+    border-color: var(--source-line);
+  }
+  .card-assume {
+    background: var(--assume-bg);
+    border-color: var(--assume-line);
+  }
+  .card-good {
+    background: var(--good-bg);
+    border-color: var(--good-line);
+  }
+  .card-bad {
+    background: var(--bad-bg);
+    border-color: var(--bad-line);
+  }
+
+  /* The one thing on the page that is allowed to be loud. */
+  .hero {
+    border-radius: 16px;
+    padding: 1.6rem 1.75rem 1.4rem;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
+  }
+  .hero-good {
+    border-color: var(--good-line);
+    background: linear-gradient(180deg, var(--good-bg), var(--surface) 70%);
+  }
+  .hero-warn {
+    border-color: var(--assume-line);
+    background: linear-gradient(180deg, var(--assume-bg), var(--surface) 70%);
+  }
+  .hero-bad {
+    border-color: var(--bad-line);
+    background: linear-gradient(180deg, var(--bad-bg), var(--surface) 70%);
+  }
+  .hero-number {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  /* ---------- text roles ---------- */
+
+  .eyebrow {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .section-title {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .lede {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    max-width: 68ch;
+  }
+  .muted {
+    color: var(--ink-mute);
+  }
+  .figure {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- chips ---------- */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.6;
+  }
+  .chip-calc {
+    color: var(--calc);
+    background: var(--calc-bg);
+  }
+  .chip-source {
+    color: var(--source);
+    background: var(--source-bg);
+  }
+  .chip-assume {
+    color: var(--assume);
+    background: var(--assume-bg);
+  }
+  .chip-good {
+    color: var(--good);
+    background: var(--good-bg);
+  }
+  .chip-bad {
+    color: var(--bad);
+    background: var(--bad-bg);
+  }
+
+  /* ---------- controls ---------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, transform 60ms ease;
+  }
+  .btn:hover {
+    background: var(--surface-sunk);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+  }
+  .btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    border-radius: 7px;
+  }
+  .btn-primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--surface);
+  }
+  .btn-primary:hover {
+    background: #222b38;
+  }
+  .btn-on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--surface);
+  }
+
+  /* The yes/no switch a section is answered with. */
+  .toggle {
+    display: inline-flex;
+    padding: 2px;
+    background: var(--surface-sunk);
+    border-radius: 8px;
+  }
+  .toggle-item {
+    padding: 0.28rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .toggle-item-on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+
+  .input {
+    width: 7.25rem;
+    padding: 0.38rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.9rem;
+    text-align: right;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .input:hover {
+    border-color: #c3cbd4;
+  }
+  .input:focus {
+    border-color: var(--accent);
+  }
+  .input-assume {
+    background: var(--assume-bg);
+    border-color: var(--assume-line);
+  }
+  .input-calc {
+    background: var(--calc-bg);
+    border-color: var(--calc-line);
+    color: var(--calc);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    display: inline-block;
+  }
+  .select {
+    padding: 0.38rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+  }
+
+  /* ---------- form sections ---------- */
+
+  .group {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 12px;
+    padding: 0.9rem 1rem 1rem;
+  }
+  .group-off {
+    background: transparent;
+    border-style: dashed;
+  }
+  .legend {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    padding: 0 0.3rem;
+  }
+  .help {
+    color: var(--ink-mute);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin: 0.35rem 0 0.75rem;
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.875rem;
+  }
+  .field-label {
+    color: var(--ink-soft);
+    min-width: 0;
+  }
+  .derived {
+    margin-top: 3px;
+    text-align: right;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--calc);
+  }
+  .derived > span {
+    background: var(--calc-bg);
+    padding: 1px 6px;
+    border-radius: 999px;
+  }
+
+  /* ---------- tables ---------- */
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .table th {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--ink);
+    white-space: nowrap;
+  }
+  .table td {
+    padding: 0.6rem 0.6rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  .table tbody tr:hover td {
+    background: color-mix(in srgb, var(--surface-sunk) 55%, transparent);
+  }
+  .table-dense td {
+    padding: 0.3rem 0.5rem;
+  }
+
+  /* ---------- misc ---------- */
+
+  .spinner {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .details-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .details-summary::-webkit-details-marker {
+    display: none;
+  }
+  .details-summary::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--ink-mute);
+    border-bottom: 1.5px solid var(--ink-mute);
+    transform: rotate(-45deg);
+    transition: transform 120ms ease;
+    flex: none;
+  }
+  details[open] > .details-summary::before {
+    transform: rotate(45deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

@@ -436,20 +436,10 @@ export function InputsPanel({
   const renderGroup = (g: Group) => {
             const on = g.toggle ? (form[g.toggle] as boolean) : true;
             return (
-            <fieldset
-              key={g.title}
-              className={`rounded-lg border p-3 ${
-                g.toggle && !on ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
-              }`}
-            >
-              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {g.title}
-              </legend>
+            <fieldset key={g.title} className={`group ${g.toggle && !on ? 'group-off' : ''}`}>
+              <legend className="legend">{g.title}</legend>
               {g.toggle && (
-                <div
-                  className="mb-2 inline-flex overflow-hidden rounded border border-slate-300"
-                  role="group"
-                >
+                <div className="toggle mb-2" role="group">
                   {([
                     ['No', false],
                     ['Yes', true],
@@ -470,18 +460,14 @@ export function InputsPanel({
                         );
                         clearResults();
                       }}
-                      className={`px-3 py-1 text-sm ${
-                        on === value
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
+                      className={`toggle-item ${on === value ? 'toggle-item-on' : ''}`}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
               )}
-              {g.help && <p className="mb-2 text-xs text-slate-600">{g.help}</p>}
+              {g.help && <p className="help">{g.help}</p>}
               {/* Not rendered at all when the answer is No. Hiding them with CSS left
                   real inputs in the page: focusable, tabbable, and easy to fill in by
                   mistake when they sit above the fields they look like. */}
@@ -491,12 +477,12 @@ export function InputsPanel({
                   const v = form[f.key] as number;
                   return (
                     <div key={String(f.key)}>
-                    <label className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-slate-700">
+                    <label className="field">
+                      <span className="field-label">
                         {f.label}
                         {PROVISIONAL.includes(f.key) && (
                           <span
-                            className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800"
+                            className="chip chip-assume ml-1.5"
                             title="Not yet confirmed — a placeholder from the build plan"
                           >
                             assumed
@@ -505,18 +491,14 @@ export function InputsPanel({
                       </span>
                       {f.role === 'calculated' ? (
                         <span
-                          className="w-28 rounded border border-indigo-300 bg-indigo-50 px-2 py-1 text-right tabular-nums text-indigo-900"
+                          className="input input-calc"
                           title="Worked out by the model from what you typed — not an input."
                         >
                           {v.toLocaleString()}
                         </span>
                       ) : (
                         <input
-                          className={`w-28 rounded border px-2 py-1 text-right tabular-nums ${
-                            f.role === 'assumption'
-                              ? 'border-amber-300 bg-amber-50'
-                              : 'border-slate-300 bg-white'
-                          }`}
+                          className={`input ${f.role === 'assumption' ? 'input-assume' : ''}`}
                           title={
                             f.role === 'assumption'
                               ? 'A modelling assumption you can change — not a fact about you, and not sourced.'
@@ -530,11 +512,8 @@ export function InputsPanel({
                     {/* Calculated, so it is shown rather than offered as an input -
                         indigo, matching the legend. Nothing typed, nothing to work out. */}
                     {f.derived && f.derived(form, ruleset) !== '' && (
-                      <div className="mt-0.5 text-right text-[11px] text-indigo-700">
-                        <span
-                          className="rounded bg-indigo-50 px-1"
-                          title="Worked out by the model from what you typed — not an input."
-                        >
+                      <div className="derived">
+                        <span title="Worked out by the model from what you typed — not an input.">
                           {f.derived(form, ruleset)}
                         </span>
                       </div>
@@ -553,31 +532,27 @@ export function InputsPanel({
           {basic.map((g) => renderGroup(g))}
 
           <details
-            className="rounded-lg border border-slate-200 bg-white"
+            className="card-quiet !px-0 !py-0 overflow-hidden"
             open={refineOpen}
             onToggle={(e) => setRefineOpen((e.target as HTMLDetailsElement).open)}
           >
-            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+            <summary className="details-summary px-4 py-3 text-sm font-medium">
               Refine the model
-              <span className="ml-2 text-xs font-normal text-slate-500">
+              <span className="ml-1 text-xs font-normal text-ink-mute">
                 {refined.length} more {refined.length === 1 ? 'section' : 'sections'}
               </span>
               {!refineOpen && active.length > 0 && (
-                <span className="mt-1 block text-xs font-normal text-amber-800">
+                <span className="chip chip-assume ml-auto">
                   {active.join(' · ')}
                 </span>
               )}
             </summary>
-            <div className="space-y-5 border-t border-slate-200 p-3">
+            <div className="space-y-4 border-t border-rule-soft bg-paper p-3">
               {refined.map((g) => renderGroup(g))}
 
-          <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Modelling settings
-          </div>
-          <fieldset className="rounded-lg border border-slate-200 bg-white p-3">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Index thresholds to CPI
-            </legend>
+          <div className="legend pt-2">Modelling settings</div>
+          <fieldset className="group">
+            <legend className="legend">Index thresholds to CPI</legend>
             {(
               [
                 ['indexTaxBrackets', 'Tax brackets, LITO, SAPTO', 'Not indexed in law — this is a judgement call about future policy, and the largest lever in the model.'],
@@ -596,9 +571,9 @@ export function InputsPanel({
                   }}
                 />
                 <span>
-                  <span className="text-slate-700">{label}</span>
+                  <span className="text-ink-soft">{label}</span>
                   {key === 'indexTaxBrackets' && (
-                    <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800">
+                    <span className="chip chip-assume ml-1.5">
                       your choice
                     </span>
                   )}
@@ -606,10 +581,10 @@ export function InputsPanel({
               </label>
             ))}
           </fieldset>
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+          <label className="group flex items-center gap-2 text-sm">
             <span className="font-medium">Drawdown</span>
             <select
-              className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
+              className="select ml-auto min-w-0 max-w-[60%]"
               value={form.drawdownStrategy}
               onChange={(e) => {
                 setForm((f) => ({ ...f, drawdownStrategy: e.target.value as DrawdownStrategy }));
@@ -622,7 +597,7 @@ export function InputsPanel({
               <option value="cashBuffer">Cash buffer</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+          <label className="group flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={form.glidePath}
@@ -634,7 +609,7 @@ export function InputsPanel({
             <span className="font-medium">Glide to defensive with age</span>
           </label>
           <label
-            className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm"
+            className="group flex items-start gap-2 text-sm"
             title="A compulsory minimum pension payment you did not need is deemed and taxed while it sits in cash. Putting it back stops both, while you are under 75 and have non-concessional cap room."
           >
             <input
@@ -648,19 +623,19 @@ export function InputsPanel({
             />
             <span>
               <span className="font-medium">Recontribute unneeded drawdowns</span>
-              <span className="block text-xs text-slate-600">
+              <span className="block text-xs text-ink-mute">
                 Minimum pension payments you did not spend go back into super, under 75
               </span>
             </span>
           </label>
-          <fieldset className="rounded-lg border border-slate-200 bg-white p-3">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <fieldset className="group">
+            <legend className="legend">
               Gender (life tables)
             </legend>
             <label className="flex items-center gap-2 py-1 text-sm">
-              <span className="text-slate-700">You</span>
+              <span className="text-ink-soft">You</span>
               <select
-                className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
+                className="select ml-auto min-w-0 max-w-[60%]"
                 value={form.sex}
                 onChange={(e) => {
                   setForm((f) => ({ ...f, sex: e.target.value as FormInputs['sex'] }));
@@ -674,9 +649,9 @@ export function InputsPanel({
             </label>
             {form.hasPartner && (
               <label className="flex items-center gap-2 py-1 text-sm">
-                <span className="text-slate-700">Partner</span>
+                <span className="text-ink-soft">Partner</span>
                 <select
-                  className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
+                  className="select ml-auto min-w-0 max-w-[60%]"
                   value={form.partnerSex}
                   onChange={(e) => {
                     setForm((f) => ({

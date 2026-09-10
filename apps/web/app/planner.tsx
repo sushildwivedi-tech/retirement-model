@@ -126,6 +126,23 @@ export default function Planner({
   // The year the household first cannot fund its target from its own assets. The Age
   // Pension does not stop there, so the dashboard says what life actually looks like after.
   const depleted = rows.find((x) => x.shortfall > 0) ?? null;
+  // Accumulation-phase super belonging to someone under Age Pension age is exempt from
+  // both tests. It is the largest lever a couple with an age gap has and is invisible
+  // unless said out loud, so the first year it applies is surfaced.
+  const exemption = (() => {
+    const row = r.rows.find(
+      (x) => x.agePensionDetail.exemptSuper > 0 && x.agePension > 0,
+    );
+    if (!row) return null;
+    const pensionAge = ruleset.agePension.eligibilityAge.value;
+    const younger = Object.entries(row.ages).find(([, age]) => age < pensionAge);
+    if (!younger) return null;
+    return {
+      amount: real ? row.agePensionDetail.exemptSuper / row.cpiIndex : row.agePensionDetail.exemptSuper,
+      who: younger[0] === PRIMARY_ID ? 'You' : 'Your partner',
+      age: younger[1],
+    };
+  })();
 
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -759,6 +776,26 @@ export default function Planner({
                 note={real ? "today's dollars" : 'future dollars'}
               />
             </div>
+
+            {exemption && (
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h2 className="font-semibold text-indigo-900">
+                    {money(exemption.amount)} of super is invisible to the Age Pension tests
+                  </h2>
+                  <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                    calculated
+                  </span>
+                </div>
+                <p className="mt-1 text-indigo-900/80">
+                  Money in accumulation phase is not assessed until the person holding it reaches
+                  Age Pension age. {exemption.who} {exemption.who === 'Your partner' ? 'is' : 'are'}{' '}
+                  {exemption.age}, so this balance is exempt from both the income and assets tests
+                  until age {ruleset.agePension.eligibilityAge.value} — worth checking before you
+                  move money between the two of you, or start a pension with it.
+                </p>
+              </div>
+            )}
 
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between">

@@ -523,13 +523,24 @@ export function project(
     }
 
     // --- 5. Age Pension --------------------------------------------------------
-    const superTotalNow = alive.reduce(
-      (a, p) => a + state.superAccumulation[p.id] + state.superPension[p.id],
-      0,
-    );
+    // Superannuation still in accumulation phase is NOT assessed until its owner reaches
+    // Age Pension age. Money already converted to a pension is assessed whatever the
+    // owner's age, because starting a pension is a choice with consequences.
+    //
+    // For a couple with an age gap this is the single most-used strategy there is: hold
+    // the balance in the younger partner's accumulation account and the older partner is
+    // assessed as though it did not exist. Assessing it - as this did until now - quietly
+    // deleted that strategy and understated the pension by thousands a year.
+    let assessedSuper = 0;
+    let exemptSuper = 0;
+    for (const p of alive) {
+      assessedSuper += state.superPension[p.id];
+      if (ages[p.id] >= pensionAge) assessedSuper += state.superAccumulation[p.id];
+      else exemptSuper += state.superAccumulation[p.id];
+    }
     // An offset balance is still the household's money, so it is assessed like any other
     // financial asset - both deemed for the income test and counted for the assets test.
-    const financialAssets = state.cash + state.offset + state.investments + superTotalNow;
+    const financialAssets = state.cash + state.offset + state.investments + assessedSuper;
     const ap = agePension(
       {
         people: alive.map((p) => ({
@@ -868,6 +879,7 @@ export function project(
         deemedIncome: round(ap.deemedIncome),
         assessedIncome: round(ap.assessedIncome),
         bindingTest: ap.bindingTest,
+        exemptSuper: round(exemptSuper),
       },
       tax: {
         // What is actually charged against the portfolio. Before retirement this is the

@@ -350,8 +350,17 @@ The split matters and is easy to get wrong:
 |---|---|
 | Age Pension income & assets tests | **Combined**, against couple thresholds |
 | Age Pension payment | **Separately** — each partner bears *half* the reduction |
+| Super in accumulation phase | **Exempt** from both tests until its owner reaches Age Pension age |
 | Income tax | **Separately**, each on their own income |
 | Super | **Separately** — own preservation age, own cap, own pension phase |
+
+The exemption is load-bearing too, and in the other direction: money in the *younger*
+partner's accumulation account is invisible to both tests until they turn 67. Holding a
+balance there rather than in the older partner's account, or rather than converting it to
+a pension, is the most-used Age Pension strategy there is — on a retired couple with a
+five-year gap and $400,000 at stake it is worth about $3,900 a year, and more where the
+assets test bites across the whole balance. The model reports the exempt amount rather
+than leaving you to infer it.
 
 The halving is load-bearing. The $3 per $1,000 assets taper exhausts a couple's *combined*
 rate exactly at the published couple cut-off, so an individual partner tapers at $1.50 —

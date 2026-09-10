@@ -517,6 +517,12 @@ export interface YearRow {
     deemedIncome: number;
     assessedIncome: number;
     bindingTest: 'income' | 'assets' | 'none';
+    /**
+     * Accumulation-phase super belonging to someone under Age Pension age, which both
+     * tests ignore. Reported because it is the largest lever a couple with an age gap
+     * has, and it is invisible unless the model says so.
+     */
+    exemptSuper: number;
   };
   tax: {
     personal: number;

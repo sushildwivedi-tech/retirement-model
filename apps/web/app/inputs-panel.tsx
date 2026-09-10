@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   superGuaranteeOn,
   takeHome,
@@ -391,16 +391,30 @@ export function InputsPanel({
   /** Needed to turn take-home pay back into the gross salary the model runs on. */
   ruleset: Ruleset;
 }) {
-  // Remembered for the visit, like the form itself: opened once, it stays open while you
-  // move between pages.
-  const [refineOpen, setRefineOpen] = useState(() => {
-    try {
-      return window.sessionStorage.getItem('retirement-model:refine') === 'open';
-    } catch {
-      return false;
-    }
-  });
+  /*
+   * Remembered for the visit, like the form itself: opened once, it stays open while you
+   * move between pages.
+   *
+   * Restored in an effect rather than in the useState initialiser. There is no
+   * sessionStorage on the server, so an initialiser that reads it returns false during
+   * prerender and true in the browser - and React hydrates a <details open> against a
+   * <details> that is shut. The form's own values are loaded the same way, and for the
+   * same reason: the first client render has to match the server's.
+   */
+  const [refineOpen, setRefineOpen] = useState(false);
+  const refineHydrated = useRef(false);
   useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem('retirement-model:refine') === 'open') setRefineOpen(true);
+    } catch {
+      /* private windows throw; opening from shut is a fine place to start */
+    }
+    refineHydrated.current = true;
+  }, []);
+  useEffect(() => {
+    // Not before the value above has been restored, or the first paint would overwrite a
+    // stored "open" with the shut it started at.
+    if (!refineHydrated.current) return;
     try {
       window.sessionStorage.setItem('retirement-model:refine', refineOpen ? 'open' : 'shut');
     } catch {

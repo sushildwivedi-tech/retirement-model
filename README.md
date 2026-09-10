@@ -308,12 +308,16 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
 2. **Pre-retirement salary tax.** While working, the household is modelled by its net
    savings rate, so tax on salary is already inside that figure. Only the *incremental*
    tax caused by investment income is charged against the portfolio, at the marginal rate
-   that income actually attracts. The same applies to salary sacrifice: the form shows what
-   it costs in the hand, but the projection does not deduct that cost from what you save
-   outside super — `annualSavings` is taken as given, and is assumed to be what you save
-   *after* sacrificing. So the "salary sacrifice $10,000" lever shows the benefit without
-   charging the cost. Lower `annualSavings` by the take-home cost the field quotes if you
-   want the honest comparison.
+   that income actually attracts.
+
+   What you save is no longer typed: it is **take-home pay less living costs**, worked out
+   after every edit. That one change makes the salary-sacrifice lever honest — sacrificing
+   lowers take-home, which lowers savings, with no separate bookkeeping and no way for the
+   two to disagree — and it replaces a figure nobody knows ("what do I save?") with one
+   everybody knows ("what do I spend?"). Living costs exclude the mortgage, which the
+   projection charges as its own spending line. Savings can go negative: that means the
+   household spends more than it earns, and the gap is funded from the portfolio rather
+   than ignored.
 3. **Coupled inputs are kept consistent.** Age and birth year are one fact — editing
    either moves the other, on the convention `birthYear = startYear - age`. Birth year is
    not decoration: it sets your preservation age and therefore the year super becomes

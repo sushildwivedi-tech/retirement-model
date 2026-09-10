@@ -38,6 +38,17 @@ export interface FormInputs {
   primaryResidence: number;
   /** Contents, vehicles and personal effects, at what they would fetch. */
   personalAssets: number;
+  /**
+   * What the household spends each month while still working, excluding the mortgage -
+   * the model charges repayments separately. This is the figure people actually know;
+   * `annualSavings` is what falls out of it.
+   */
+  livingCostsMonthly: number;
+  /**
+   * Saved outside super each year. Calculated: take-home pay less living costs. Negative
+   * when the household spends more than it earns, which the projection funds from the
+   * portfolio rather than ignoring.
+   */
   annualSavings: number;
   retirementSpending: number;
   cpi: number;
@@ -128,6 +139,9 @@ export const defaults: FormInputs = {
   investments: 150_000,
   primaryResidence: 900_000,
   personalAssets: 20_000,
+  // $7,590 a month in, $5,090 out, $30,000 a year saved - the figures the example has
+  // always used, now related to each other rather than typed independently.
+  livingCostsMonthly: 5_090,
   annualSavings: 30_000,
   retirementSpending: 60_000,
   cpi: 0.025,
@@ -311,6 +325,11 @@ export function applyFieldRules(
   ) {
     next.retirementAge = next.currentAge;
   }
+  // Savings is what is left of take-home after living costs, so it is recomputed after
+  // every edit rather than typed. Unconditional because it is a pure function of the
+  // fields above: if it does not change, recomputing costs nothing.
+  next.annualSavings = savingsFor(next);
+
   if (
     Number.isFinite(next.partnerCurrentAge) &&
     Number.isFinite(next.partnerRetirementAge) &&
@@ -343,6 +362,17 @@ export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): Fo
   // it is the one a person typed.
   reconcilePay(out, took, ruleset, YOUR_PAY);
   reconcilePay(out, took, ruleset, PARTNER_PAY);
+
+  // A file from before savings was derived carries annualSavings and no living costs, so
+  // the living costs are worked out backwards from it. Where the file has living costs,
+  // they win and savings is recomputed - the typed figure is the one a person knows.
+  if (took.has('livingCostsMonthly')) out.annualSavings = savingsFor(out);
+  else if (took.has('annualSavings')) {
+    out.livingCostsMonthly = Math.round((takeHomeAnnual(out) - out.annualSavings) / 12);
+    out.annualSavings = savingsFor(out);
+  } else {
+    out.annualSavings = savingsFor(out);
+  }
   if (took.has('healthInsuranceMonthly')) {
     out.privateHealthInsurancePremium = annualFromMonthly(out.healthInsuranceMonthly);
   } else if (took.has('privateHealthInsurancePremium')) {
@@ -377,6 +407,46 @@ export function grossSalaryFor(
 export function netMonthlyFor(gross: number, ruleset: Ruleset, opts: PayOptions = {}): number {
   if (!Number.isFinite(gross) || gross <= 0) return 0;
   return Math.round(takeHome(gross, ruleset, opts).net / 12);
+}
+
+/** Household take-home pay for a year: everyone who is working, after tax. */
+export function takeHomeAnnual(f: FormInputs): number {
+  const you = Number.isFinite(f.netMonthlyPay) ? f.netMonthlyPay : 0;
+  const partner = f.hasPartner && Number.isFinite(f.partnerNetMonthlyPay) ? f.partnerNetMonthlyPay : 0;
+  return (you + partner) * 12;
+}
+
+/**
+ * What the household saves outside super each year.
+ *
+ * Take-home less living costs, and nothing else: super contributions are already out of
+ * take-home by the time it is measured, and the mortgage is charged by the projection as
+ * its own spending line rather than being counted here twice.
+ *
+ * It can be negative. That is not an error to be clamped away - it means the household
+ * spends more than it earns, and the projection funds the gap from the portfolio.
+ */
+export function savingsFor(f: FormInputs): number {
+  const costs = Number.isFinite(f.livingCostsMonthly) ? f.livingCostsMonthly * 12 : 0;
+  return Math.round(takeHomeAnnual(f) - costs);
+}
+
+/**
+ * Apply a set of changes as though they had been typed, one field at a time.
+ *
+ * The levers use this for both halves of their job - working out what a change is worth,
+ * and applying it when asked - so the projection they advertise is the projection you get.
+ * Spreading the change in raw would leave every derived field behind it stale.
+ */
+export function withChange(
+  form: FormInputs,
+  change: Partial<FormInputs>,
+  ruleset: Ruleset,
+): FormInputs {
+  return (Object.keys(change) as Array<keyof FormInputs>).reduce(
+    (acc, k) => applyFieldRules(acc, k, ruleset),
+    { ...form, ...change },
+  );
 }
 
 /** The four form fields that describe one person's pay, so the rules can be written once. */

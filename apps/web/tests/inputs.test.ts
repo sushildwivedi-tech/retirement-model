@@ -9,6 +9,9 @@ import {
   grossSalaryFor,
   netMonthlyFor,
   toScenario,
+  savingsFor,
+  takeHomeAnnual,
+  withChange,
   type FormInputs,
 } from '../app/inputs';
 
@@ -396,5 +399,79 @@ describe('the three payslip lines', () => {
   it('believes an imported employer contribution rather than recomputing it', () => {
     const out = mergeInputs({ salary: 120_000, employerSuperMonthly: 1_540 }, ruleset);
     expect(out.employerSuperMonthly).toBe(1_540);
+  });
+});
+
+describe('what you save is what is left, not what you type', () => {
+  it('ships an example whose three figures already agree', () => {
+    expect(savingsFor(defaults)).toBe(defaults.annualSavings);
+    expect(defaults.annualSavings).toBe(30_000);
+  });
+
+  it('moves when the pay moves', () => {
+    const richer = rules(withField({ netMonthlyPay: 9_000 }), 'netMonthlyPay');
+    expect(richer.annualSavings).toBe(
+      Math.round((9_000 - defaults.livingCostsMonthly) * 12),
+    );
+    expect(richer.annualSavings).toBeGreaterThan(defaults.annualSavings);
+  });
+
+  it('moves when the living costs move', () => {
+    const leaner = rules(withField({ livingCostsMonthly: 4_000 }), 'livingCostsMonthly');
+    expect(leaner.annualSavings).toBe(Math.round((defaults.netMonthlyPay - 4_000) * 12));
+  });
+
+  it('charges a salary sacrifice against savings, not against nothing', () => {
+    // The whole point of deriving it: the sacrifice lowers take-home, so it lowers what
+    // is saved outside super. No separate bookkeeping, and no way for the two to disagree.
+    const sacrificing = rules(
+      withField({ voluntarySuperContribution: 10_000 }),
+      'voluntarySuperContribution',
+    );
+    const cost = defaults.annualSavings - sacrificing.annualSavings;
+    expect(cost).toBeGreaterThan(5_000);
+    expect(cost).toBeLessThan(10_000);
+    expect(cost).toBe((defaults.netMonthlyPay - sacrificing.netMonthlyPay) * 12);
+  });
+
+  it('counts a partner’s pay once they exist', () => {
+    const single = withField({});
+    const couple = rules({ ...single, hasPartner: true }, 'hasPartner');
+    expect(takeHomeAnnual(couple)).toBe(
+      (defaults.netMonthlyPay + defaults.partnerNetMonthlyPay) * 12,
+    );
+    expect(couple.annualSavings).toBe(single.annualSavings + defaults.partnerNetMonthlyPay * 12);
+  });
+
+  it('goes negative rather than pretending, when you spend more than you earn', () => {
+    const overspending = rules(withField({ livingCostsMonthly: 9_000 }), 'livingCostsMonthly');
+    expect(overspending.annualSavings).toBeLessThan(0);
+  });
+
+  it('works a living-cost figure backwards out of an older scenario file', () => {
+    const out = mergeInputs({ annualSavings: 12_000 }, ruleset);
+    expect(out.livingCostsMonthly).toBe(
+      Math.round((takeHomeAnnual(defaults) - 12_000) / 12),
+    );
+    expect(out.annualSavings).toBeCloseTo(12_000, -1);
+  });
+
+  it('believes living costs when a file carries both', () => {
+    const out = mergeInputs({ annualSavings: 1, livingCostsMonthly: 4_000 }, ruleset);
+    expect(out.annualSavings).toBe(Math.round((defaults.netMonthlyPay - 4_000) * 12));
+  });
+});
+
+describe('a lever change is applied the way it was measured', () => {
+  it('carries derived fields with it', () => {
+    const after = withChange(defaults, { livingCostsMonthly: 4_257 }, ruleset);
+    expect(after.annualSavings).toBe(Math.round((defaults.netMonthlyPay - 4_257) * 12));
+  });
+
+  it('carries the take-home cost of a sacrifice lever', () => {
+    const after = withChange(defaults, { voluntarySuperContribution: 10_000 }, ruleset);
+    expect(after.netMonthlyPay).toBeLessThan(defaults.netMonthlyPay);
+    expect(after.annualSavings).toBeLessThan(defaults.annualSavings);
+    expect(after.salary).toBe(defaults.salary);
   });
 });

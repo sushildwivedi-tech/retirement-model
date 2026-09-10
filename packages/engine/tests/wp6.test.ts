@@ -163,3 +163,27 @@ describe('recontributing a compulsory drawdown that was not needed', () => {
     expect(project(old(), ruleset, datasets).rows[0].contributions.recontributed).toBe(0);
   });
 });
+
+describe('spending more than you earn while working', () => {
+  const dissaving = (annualSavings: number): Scenario => ({
+    ...baseCase,
+    household: { ...baseCase.household, annualSavings, cash: 0, investments: 300_000 },
+  });
+
+  it('draws the gap from the portfolio rather than ignoring it', () => {
+    const saving = project(dissaving(0), ruleset, datasets).rows[0];
+    const spending = project(dissaving(-20_000), ruleset, datasets).rows[0];
+    expect(spending.balances.investments).toBeLessThan(saving.balances.investments);
+    expect(spending.spending.total - saving.spending.total).toBeCloseTo(20_000, 0);
+  });
+
+  it('stops at retirement, when retirement spending takes over', () => {
+    const rows = project(dissaving(-20_000), ruleset, datasets).rows;
+    const retired = rows.find((r) => r.ages.you >= baseCase.household.people[0].retirementAge);
+    const working = rows[0];
+    expect(working.spending.total).toBeGreaterThan(0);
+    // The dissaving line is gone; what is left is the retirement spending target.
+    expect(retired!.spending.total).toBeGreaterThan(0);
+    expect(retired!.income.salary).toBe(0);
+  });
+});

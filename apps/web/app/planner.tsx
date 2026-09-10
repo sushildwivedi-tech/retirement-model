@@ -22,6 +22,7 @@ import {
 import {
   applyFieldRules,
   clearSaved,
+  withChange,
   defaults,
   loadSaved,
   mergeInputs,
@@ -231,9 +232,9 @@ export default function Planner({
         change: { retirementSpending: Math.max(0, form.retirementSpending - 10000) },
       },
       {
-        label: 'Save $10,000 more a year',
-        detail: 'Outside super, while still working',
-        change: { annualSavings: form.annualSavings + 10000 },
+        label: 'Spend $10,000 a year less now',
+        detail: `${money(form.livingCostsMonthly - 833)} a month instead of ${money(form.livingCostsMonthly)}, so $10,000 more is saved`,
+        change: { livingCostsMonthly: Math.max(0, form.livingCostsMonthly - 833) },
       },
       {
         label: 'Salary sacrifice $10,000 a year',
@@ -348,7 +349,10 @@ export default function Planner({
       toScenario(form, phi),
       candidates.map((c) => ({
         label: c.label,
-        scenario: toScenario({ ...form, ...c.change }, phi),
+        // Through the field rules, exactly as Apply will: a lever that changes living
+        // costs or a sacrifice moves what the household saves, and evaluating the raw
+        // spread would advertise an outcome the Apply button does not deliver.
+        scenario: toScenario(withChange(form, c.change, ruleset), phi),
       })),
       ruleset,
       { lifeTables, healthCostCurve },
@@ -1068,12 +1072,7 @@ export default function Planner({
                                 // Through the field rules, key by key: applying "salary
                                 // sacrifice $10,000" has to move the take-home figure the
                                 // form shows, or the panel would contradict the lever.
-                                setForm((f) =>
-                                  (Object.keys(l.change) as Array<keyof FormInputs>).reduce(
-                                    (acc, k) => applyFieldRules(acc, k, ruleset),
-                                    { ...f, ...l.change },
-                                  ),
-                                );
+                                setForm((f) => withChange(f, l.change, ruleset));
                                 clearResults();
                               }}
                               className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"

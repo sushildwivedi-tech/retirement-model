@@ -512,13 +512,20 @@ export function project(
       eventLog.push(`${e.label}: ${Math.round(amount).toLocaleString()}.`);
     }
 
+    // Saving a negative amount means the household spends more than it earns while still
+    // working. The gap has to come from somewhere, so it joins the year's spending and is
+    // funded like any other - rather than being silently ignored, which is what happened
+    // when savings was a typed figure nobody made negative on purpose.
+    const dissaving = inRetirement ? 0 : Math.max(0, -household.annualSavings) * cpiIndex;
+
     const totalSpending =
       baselineSpending +
       healthSpending +
       phiSpending +
       agedCareSpending +
       oneOffSpending +
-      mortgageSpending;
+      mortgageSpending +
+      dissaving;
 
     const savings = inRetirement ? 0 : household.annualSavings * cpiIndex;
     if (savings > 0) {

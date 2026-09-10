@@ -6,10 +6,10 @@ import {
   type DrawdownStrategy,
   type Ruleset,
 } from '@retirement/engine';
-import { applyFieldRules, PROVISIONAL, type FormInputs } from './inputs';
+import { applyFieldRules, takeHomeAnnual, PROVISIONAL, type FormInputs } from './inputs';
 import { money, pct } from './format';
 
-type Role = 'you' | 'assumption';
+type Role = 'you' | 'assumption' | 'calculated';
 
 type Field = {
   key: keyof FormInputs;
@@ -143,7 +143,7 @@ const GROUPS: Group[] = [
   },
   {
     title: 'Income and saving (while working)',
-    help: 'The three figures off your payslip. Pay is what reaches your account, after anything you put into super and after tax; the gross salary underneath it is worked out from the tax scale. Employer super is paid on top of salary, so it does not come out of your pay.',
+    help: 'The three figures off your payslip, plus what it costs you to live. What you save is the difference — so a pay rise, a bigger sacrifice or a leaner month all move it the way they would in life.',
     fields: [
       {
         key: 'netMonthlyPay',
@@ -164,8 +164,23 @@ const GROUPS: Group[] = [
         derived: (f, r) =>
           sacrificeNote(f.salary, f.voluntarySuperContribution, f.employerSuperMonthly, r),
       },
-      { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
-      { key: 'annualSavings', label: 'Saved outside super each year', kind: 'money' },
+      {
+        key: 'livingCostsMonthly',
+        label: 'What you spend / month',
+        kind: 'money',
+        derived: (f) =>
+          f.hasMortgage ? 'Not counting the mortgage — that is charged separately' : '',
+      },
+      {
+        key: 'annualSavings',
+        label: 'Saved outside super each year',
+        kind: 'money',
+        role: 'calculated',
+        derived: (f) =>
+          f.annualSavings < 0
+            ? `You spend ${money(-f.annualSavings)} a year more than you earn`
+            : `${money(takeHomeAnnual(f))} in, ${money(f.livingCostsMonthly * 12)} out`,
+      },
     ],
   },
   {
@@ -323,7 +338,15 @@ export function InputsPanel({
                       type="button"
                       aria-pressed={on === value}
                       onClick={() => {
-                        setForm((f) => ({ ...f, [g.toggle as string]: value }));
+                        // Through the rules: answering "yes" to a partner adds their pay
+                        // to the household, which changes what the household saves.
+                        setForm((f) =>
+                          applyFieldRules(
+                            { ...f, [g.toggle as string]: value },
+                            g.toggle as keyof FormInputs,
+                            ruleset,
+                          ),
+                        );
                         clearResults();
                       }}
                       className={`px-3 py-1 text-sm ${
@@ -359,20 +382,29 @@ export function InputsPanel({
                           </span>
                         )}
                       </span>
-                      <input
-                        className={`w-28 rounded border px-2 py-1 text-right tabular-nums ${
-                          f.role === 'assumption'
-                            ? 'border-amber-300 bg-amber-50'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                        title={
-                          f.role === 'assumption'
-                            ? 'A modelling assumption you can change — not a fact about you, and not sourced.'
-                            : 'Your own figure.'
-                        }
-                        value={f.kind === 'percent' ? (v * 100).toFixed(2) : String(v)}
-                        onChange={(e) => set(f.key, e.target.value, f.kind)}
-                      />
+                      {f.role === 'calculated' ? (
+                        <span
+                          className="w-28 rounded border border-indigo-300 bg-indigo-50 px-2 py-1 text-right tabular-nums text-indigo-900"
+                          title="Worked out by the model from what you typed — not an input."
+                        >
+                          {v.toLocaleString()}
+                        </span>
+                      ) : (
+                        <input
+                          className={`w-28 rounded border px-2 py-1 text-right tabular-nums ${
+                            f.role === 'assumption'
+                              ? 'border-amber-300 bg-amber-50'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                          title={
+                            f.role === 'assumption'
+                              ? 'A modelling assumption you can change — not a fact about you, and not sourced.'
+                              : 'Your own figure.'
+                          }
+                          value={f.kind === 'percent' ? (v * 100).toFixed(2) : String(v)}
+                          onChange={(e) => set(f.key, e.target.value, f.kind)}
+                        />
+                      )}
                     </label>
                     {/* Calculated, so it is shown rather than offered as an input -
                         indigo, matching the legend. Nothing typed, nothing to work out. */}

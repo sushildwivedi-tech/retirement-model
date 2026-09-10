@@ -468,6 +468,9 @@ export function project(
       }
     }
 
+    // Rent runs whether or not anyone has retired, like the mortgage it stands in for.
+    const rentSpending = (household.rentPerYear ?? 0) * cpiIndex;
+
     // --- Home loan ------------------------------------------------------------
     // Repayments are a spending line that ends when the loan does (build plan 2.2),
     // rather than being netted against assets. They run whether or not anyone has
@@ -536,6 +539,7 @@ export function project(
       agedCareSpending +
       oneOffSpending +
       mortgageSpending +
+      rentSpending +
       dissaving;
 
     const savings = inRetirement ? 0 : household.annualSavings * cpiIndex;
@@ -579,6 +583,7 @@ export function project(
         financialAssets,
         assessableAssets: financialAssets + personalAssets,
         otherAssessableIncome: 0,
+        rentPerYear: rentSpending,
       },
       ry,
     );
@@ -934,6 +939,7 @@ export function project(
         assessedIncome: round(ap.assessedIncome),
         bindingTest: ap.bindingTest,
         exemptSuper: round(exemptSuper),
+        rentAssistance: round(ap.rentAssistance),
       },
       costs: {
         superFees: round(superFees),

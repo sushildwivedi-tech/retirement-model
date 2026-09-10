@@ -299,7 +299,7 @@ export default function Planner({
 
     const downsizerAge = ruleset.super.downsizerContribution.minimumAge.value;
     const downsizerCap = ruleset.super.downsizerContribution.capPerPerson.value;
-    if (!form.downsize && form.primaryResidence > 0) {
+    if (form.ownsHome && !form.downsize && form.primaryResidence > 0) {
       // A plausible move rather than a prescription: a home two thirds the value.
       const replacement = Math.round((form.primaryResidence * 2) / 3 / 10_000) * 10_000;
       // Two timings, because they trade off against each other and the model can settle
@@ -326,7 +326,7 @@ export default function Planner({
         change: { downsize: true, downsizeAge: downsizerAge, downsizeNewHomeValue: replacement },
       });
     }
-    if (form.downsize && form.downsizeAge > form.retirementAge) {
+    if (form.ownsHome && form.downsize && form.downsizeAge > form.retirementAge) {
       // Equity released after the money has already run out is no help at all. Moving the
       // move earlier trades the downsizer contribution for liquidity when it is needed.
       candidates.push({
@@ -338,7 +338,7 @@ export default function Planner({
         change: { downsizeAge: form.retirementAge },
       });
     }
-    if (form.downsize && form.downsizeAge < downsizerAge) {
+    if (form.ownsHome && form.downsize && form.downsizeAge < downsizerAge) {
       candidates.push({
         label: `Downsize at ${downsizerAge} instead`,
         detail: `Unlocks the downsizer contribution — up to ${money(downsizerCap)} into super, which you forfeit downsizing at ${form.downsizeAge}`,

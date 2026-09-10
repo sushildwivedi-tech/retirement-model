@@ -52,7 +52,7 @@ ATO are not the same kind of thing and should not look alike:
 | Sky | Public data — sourced, and therefore **not editable** |
 | Indigo | Calculated by the model |
 
-Nineteen sourced figures (super guarantee, caps, preservation age, Medicare levy, CGT
+Twenty sourced figures (super guarantee, caps, preservation age, Medicare levy, CGT
 discount, Age Pension rates and thresholds, deeming, the Work Bonus, aged care fees,
 private health premium growth, the health curve and the life tables) are listed read-only
 in the sidebar with their source. Changing one means updating the ruleset, not the form.
@@ -237,6 +237,20 @@ and a fan with zero width.
 `outsideSuperFirst` (default), `superFirst`, `proportional`, and `cashBuffer` — which
 holds N years of spending in cash and refills it in good years, the sequence-risk defence
 the build plan asks for. A glide path can shift super toward defensive options with age.
+
+## Renters
+
+A non-homeowner used to get nothing but different assets-test thresholds — no rent in
+their spending, no Rent Assistance in their income, wrong in both directions at once.
+Answering "no" to *Do you own your home?* now asks for the rent instead of the home value,
+charges it every year (working or retired, like the mortgage), and pays Rent Assistance on
+top of the pension: **75c for every dollar of fortnightly rent above $154.80 single or
+$250.80 for a couple, to a maximum of $219.40 and $206.80** — sourced from Services
+Australia on 10 September 2026, and cross-checked against the published maximum-rate rents
+before it was encoded. A homeowner gets none of it, and neither does anyone whose pension
+has already tapered to nothing.
+
+Downsizing disappears from the levers and the form when there is no home to sell.
 
 ## Fees
 

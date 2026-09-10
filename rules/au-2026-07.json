@@ -382,6 +382,25 @@
       "source": "Services Australia - How a Work Bonus works: '$300 credit added to your Work Bonus balance each fortnight. The maximum Work Bonus balance you can accrue is $11,800 credit.' Applies to employment income only, before the income test.",
       "url": "https://www.servicesaustralia.gov.au/how-work-bonus-works",
       "retrievedAt": "2026-09-09"
+    },
+    "rentAssistance": {
+      "value": {
+        "taperPerDollarOfRent": 0.75,
+        "single": {
+          "rentThresholdFortnight": 154.8,
+          "maxPaymentFortnight": 219.4,
+          "rentForMaxPaymentFortnight": 447.34
+        },
+        "coupleCombined": {
+          "rentThresholdFortnight": 250.8,
+          "maxPaymentFortnight": 206.8,
+          "rentForMaxPaymentFortnight": 526.54
+        }
+      },
+      "status": "sourced",
+      "source": "Services Australia - How much Rent Assistance you can get, 'Rates when paid with income support payments and ABSTUDY'. 'For every $1 of rent you pay above this amount, you'll get 75c.' Updated 20 March and 20 September in line with CPI; these are the rates current on 2026-09-10. Cross-check: (447.34 - 154.80) x 0.75 = 219.41 against the published $219.40 maximum, and (526.54 - 250.80) x 0.75 = 206.81 against $206.80.",
+      "url": "https://www.servicesaustralia.gov.au/how-much-rent-assistance-you-can-get",
+      "retrievedAt": "2026-09-10"
     }
   },
   "capitalGains": {

@@ -19,11 +19,15 @@ export interface AgePensionInput {
   assessableAssets: number;
   /** Rent, defined-benefit pensions and anything else assessed directly, combined. */
   otherAssessableIncome: number;
+  /** Rent paid per year. Only a non-homeowner can attract Rent Assistance. */
+  rentPerYear?: number;
 }
 
 export interface AgePensionResult {
-  /** Total annual entitlement across the household. */
+  /** Total annual entitlement across the household, Rent Assistance included. */
   entitlement: number;
+  /** The Rent Assistance part of it. Nil for a homeowner, or where no pension is payable. */
+  rentAssistance: number;
   /** Entitlement per person - each partner is paid separately. */
   byPerson: Record<string, number>;
   /** Maximum the household could receive given who is of pension age. */
@@ -73,6 +77,7 @@ export function agePension(input: AgePensionInput, ruleset: Ruleset): AgePension
 
   const none: AgePensionResult = {
     entitlement: 0,
+    rentAssistance: 0,
     byPerson,
     maxRate: 0,
     deemedIncome: 0,
@@ -134,10 +139,29 @@ export function agePension(input: AgePensionInput, ruleset: Ruleset): AgePension
   const perPersonReduction = single ? combinedReduction : combinedReduction / 2;
   const perPerson = Math.max(0, perPersonRate - perPersonReduction);
   for (const p of eligible) byPerson[p.id] = perPerson;
-  const entitlement = perPerson * eligible.length;
+  const pensionEntitlement = perPerson * eligible.length;
+
+  // --- Rent Assistance -------------------------------------------------------------
+  // Paid on top of the pension, and only to someone actually receiving it: 75c for every
+  // dollar of rent above a threshold, capped. A homeowner cannot get it.
+  const rent = input.rentPerYear ?? 0;
+  let rentAssistance = 0;
+  if (!input.homeOwner && rent > 0 && pensionEntitlement > 0) {
+    const ra = ap.rentAssistance.value;
+    const band = single ? ra.single : ra.coupleCombined;
+    rentAssistance = Math.min(
+      Math.max(0, rent - band.rentThresholdFortnight * fy) * ra.taperPerDollarOfRent,
+      band.maxPaymentFortnight * fy,
+    );
+    // A couple is paid the combined maximum between them, like the pension itself.
+    const share = rentAssistance / eligible.length;
+    for (const p of eligible) byPerson[p.id] += share;
+  }
+  const entitlement = pensionEntitlement + rentAssistance;
 
   return {
     entitlement,
+    rentAssistance,
     byPerson,
     maxRate,
     deemedIncome: deemed,

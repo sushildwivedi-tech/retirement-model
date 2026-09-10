@@ -31,9 +31,11 @@ type Group = {
    * the fields appearing only once it is Yes - so a choice and the numbers it needs
    * always live together, rather than the switch being somewhere else entirely.
    */
-  toggle?: 'hasPartner' | 'downsize' | 'agedCareEnabled' | 'hasMortgage';
+  toggle?: 'hasPartner' | 'downsize' | 'agedCareEnabled' | 'hasMortgage' | 'ownsHome';
   /** Only render this section when that boolean is already on. */
-  requires?: 'hasPartner';
+  requires?: 'hasPartner' | 'ownsHome';
+  /** Only render this section when that boolean is OFF - the other half of a choice. */
+  requiresNot?: 'ownsHome';
   /** One line under the title explaining what the decision means. */
   help?: string;
 };
@@ -202,13 +204,31 @@ const GROUPS: Group[] = [
       { key: 'cash', label: 'Cash', kind: 'money' },
       { key: 'investments', label: 'Shares / ETFs outside super', kind: 'money' },
       { key: 'superBalance', label: 'Super', kind: 'money' },
-      { key: 'primaryResidence', label: 'Home value', kind: 'money' },
       {
         key: 'personalAssets',
         label: 'Contents, car and effects',
         kind: 'money',
         derived: () =>
           'Counted by the assets test at what it would fetch, never deemed',
+      },
+    ],
+  },
+  {
+    title: 'Do you own your home?',
+    toggle: 'ownsHome',
+    help: 'A home is exempt from the assets test but a renter gets higher asset limits, and Rent Assistance on top of the pension.',
+    fields: [{ key: 'primaryResidence', label: 'Home value', kind: 'money' }],
+  },
+  {
+    title: 'Renting',
+    requiresNot: 'ownsHome',
+    help: 'Rent is a cost in every year, working or retired. Rent Assistance pays 75c for every dollar of rent above a threshold once the Age Pension starts.',
+    fields: [
+      {
+        key: 'rentPerWeek',
+        label: 'Rent / week',
+        kind: 'money',
+        derived: (f) => `${money(f.rentPerWeek * 52)} a year`,
       },
     ],
   },
@@ -230,6 +250,7 @@ const GROUPS: Group[] = [
   {
     title: 'Will you downsize the home?',
     toggle: 'downsize',
+    requires: 'ownsHome',
     help: 'Selling the family home for something smaller frees the equity — and from age 55 lets you put some of it into super.',
     fields: [
       { key: 'downsizeAge', label: 'Downsize at age', kind: 'age' },
@@ -335,7 +356,9 @@ export function InputsPanel({
   const clearResults = onChange;
   return (
     <>
-          {GROUPS.filter((g) => !g.requires || form[g.requires]).map((g) => {
+          {GROUPS.filter(
+            (g) => (!g.requires || form[g.requires]) && (!g.requiresNot || !form[g.requiresNot]),
+          ).map((g) => {
             const on = g.toggle ? (form[g.toggle] as boolean) : true;
             return (
             <fieldset

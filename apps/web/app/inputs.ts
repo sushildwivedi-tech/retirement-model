@@ -35,7 +35,11 @@ export interface FormInputs {
   voluntarySuperContribution: number;
   cash: number;
   investments: number;
+  /** Owns the home they live in. Off means renting, which changes both tests and costs. */
+  ownsHome: boolean;
   primaryResidence: number;
+  /** Rent paid per week, as a lease states it. Only used when `ownsHome` is off. */
+  rentPerWeek: number;
   /** Contents, vehicles and personal effects, at what they would fetch. */
   personalAssets: number;
   /**
@@ -144,7 +148,9 @@ export const defaults: FormInputs = {
   voluntarySuperContribution: 0,
   cash: 0,
   investments: 150_000,
+  ownsHome: true,
   primaryResidence: 900_000,
+  rentPerWeek: 650,
   personalAssets: 20_000,
   // $7,590 a month in, $5,090 out, $30,000 a year saved - the figures the example has
   // always used, now related to each other rather than typed independently.
@@ -697,10 +703,11 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
     name: f.hasPartner ? 'Couple' : 'Base case',
     startYear: f.startYear,
     household: {
-      homeOwner: f.primaryResidence > 0,
+      homeOwner: f.ownsHome,
       cash: f.cash,
       investments: f.investments,
-      primaryResidence: f.primaryResidence,
+      primaryResidence: f.ownsHome ? f.primaryResidence : 0,
+      rentPerYear: f.ownsHome ? undefined : f.rentPerWeek * 52,
       personalAssets: f.personalAssets,
       annualSavings: f.annualSavings,
       recontributeExcessDrawdown: f.recontributeExcessDrawdown,

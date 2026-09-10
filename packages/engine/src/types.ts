@@ -130,6 +130,23 @@ export interface Ruleset {
         coupleNeitherPensionerEach: number;
       };
     }>;
+    /**
+     * Rent Assistance, paid on top of the pension to a renter. 75c for every dollar of
+     * rent above a threshold, up to a maximum.
+     */
+    rentAssistance: SourcedValue<{
+      taperPerDollarOfRent: number;
+      single: {
+        rentThresholdFortnight: number;
+        maxPaymentFortnight: number;
+        rentForMaxPaymentFortnight: number;
+      };
+      coupleCombined: {
+        rentThresholdFortnight: number;
+        maxPaymentFortnight: number;
+        rentForMaxPaymentFortnight: number;
+      };
+    }>;
     workBonus: SourcedValue<{ creditPerFortnight: number; maximumBalance: number }>;
   };
   agedCare: {
@@ -290,6 +307,12 @@ export interface Household {
   primaryResidence: number;
   /** Total saved into `investments` each year while anyone is still working, today's dollars. */
   annualSavings: number;
+  /**
+   * Rent paid per year, in today's dollars, for a household that does not own its home.
+   * A spending line in every year, working or retired - like the mortgage, and unlike
+   * everything else it sits beside. Indexed at CPI.
+   */
+  rentPerYear?: number;
   /**
    * Contents, vehicles and personal effects, at the value Services Australia would put on
    * them - what they would fetch, not what they cost. Counted by the assets test and
@@ -557,6 +580,8 @@ export interface YearRow {
      * has, and it is invisible unless the model says so.
      */
     exemptSuper: number;
+    /** Rent Assistance, which is part of the entitlement above. */
+    rentAssistance: number;
   };
   /** What the year cost in fees and insurance premiums - money that simply leaves. */
   costs: {

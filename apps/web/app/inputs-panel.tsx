@@ -529,7 +529,7 @@ export function InputsPanel({
 
   return (
     <>
-          {basic.map((g) => renderGroup(g))}
+          <div className="form-panel">{basic.map((g) => renderGroup(g))}</div>
 
           <details
             className="card-quiet !px-0 !py-0 overflow-hidden"
@@ -547,8 +547,11 @@ export function InputsPanel({
                 </span>
               )}
             </summary>
-            <div className="space-y-4 border-t border-rule-soft bg-paper p-3">
-              {refined.map((g) => renderGroup(g))}
+            <div className="border-t border-rule-soft">
+              <div className="form-panel !rounded-none !border-0 !shadow-none">
+                {refined.map((g) => renderGroup(g))}
+              </div>
+              <div className="space-y-3 border-t border-rule-soft bg-paper p-3">
 
           <div className="legend pt-2">Modelling settings</div>
           <fieldset className="group">
@@ -668,6 +671,7 @@ export function InputsPanel({
               </label>
             )}
           </fieldset>
+              </div>
             </div>
           </details>
     </>

@@ -560,6 +560,12 @@ export default function Planner({
     canRetireAt.people.length > 1 ? canRetireAt.people[1].age - canRetireAt.people[0].age : 0;
 
 
+  // The widest swing any lever produces, so the bars in the table share one scale.
+  const worstBestYears = Math.max(
+    1,
+    ...levers.map((l) => Math.abs(l.outcome.deltaYears ?? 0)),
+  );
+
   const download = () => {
     const blob = new Blob([toCsv(r, real)], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -965,8 +971,8 @@ export default function Planner({
 
           {view === 'answer' && (
             <>
-            <div className="card card-calc">
-              <div className="mb-3 flex flex-wrap items-center gap-3">
+            <div className="band">
+              <div className="band-head">
                 <h2 className="section-title">How confident can you be?</h2>
                 <span className="chip chip-calc">
                   calculated
@@ -1104,8 +1110,8 @@ export default function Planner({
               )}
             </div>
 
-            <div className="card card-calc">
-              <div className="mb-1 flex items-baseline justify-between">
+            <div className="band">
+              <div className="band-head">
                 <h2 className="section-title">What would move the needle</h2>
                 <span className="chip chip-calc">
                   calculated
@@ -1172,6 +1178,22 @@ export default function Planner({
                                   : o.deltaYears === 0
                                     ? 'no change'
                                     : `${o.deltaYears} yrs`}
+                            {/* The same figure as a length, so the ranking is visible
+                                without reading every row. Scaled against the best row,
+                                which is the only comparison that matters here. */}
+                            {o.deltaYears !== null && o.deltaYears !== 0 && (
+                              <span className="bar-track mt-1.5">
+                                <span
+                                  className={`bar-fill ${o.deltaYears < 0 ? 'bar-fill-bad' : ''}`}
+                                  style={{
+                                    width: `${Math.max(
+                                      6,
+                                      (Math.abs(o.deltaYears) / worstBestYears) * 100,
+                                    )}%`,
+                                  }}
+                                />
+                              </span>
+                            )}
                           </td>
                           <td className="px-2 py-2 text-right tabular-nums text-ink-mute">
                             {money(o.liquidEstateReal)}

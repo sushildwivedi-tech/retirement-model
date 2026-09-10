@@ -1,4 +1,10 @@
-import type { DrawdownStrategy, Scenario } from '@retirement/engine';
+import {
+  grossFromNet,
+  netFromGross,
+  type DrawdownStrategy,
+  type Ruleset,
+  type Scenario,
+} from '@retirement/engine';
 
 /** The flat shape the form edits, mapped into a `Scenario` for the engine. */
 export interface FormInputs {
@@ -7,6 +13,12 @@ export interface FormInputs {
   currentAge: number;
   retirementAge: number;
   planToAge: number;
+  /**
+   * Take-home pay per month - what actually lands in the account after tax. This is what
+   * the user knows; `salary` is solved back out of it.
+   */
+  netMonthlyPay: number;
+  /** Gross annual salary, calculated from `netMonthlyPay` by running the tax scale backwards. */
   salary: number;
   wageGrowth: number;
   superBalance: number;
@@ -24,6 +36,9 @@ export interface FormInputs {
   returnHome: number;
   includeHealthCosts: boolean;
   outOfPocketMultiplier: number;
+  /** Health insurance premium per month, as it is billed; the annual figure is calculated. */
+  healthInsuranceMonthly: number;
+  /** Health insurance premium per year, calculated from `healthInsuranceMonthly`. */
   privateHealthInsurancePremium: number;
   healthInflation: number;
   phaseGoGoTo: number;
@@ -54,6 +69,9 @@ export interface FormInputs {
   partnerCurrentAge: number;
   partnerBirthYear: number;
   partnerRetirementAge: number;
+  /** The partner's take-home pay per month; `partnerSalary` is calculated from it. */
+  partnerNetMonthlyPay: number;
+  /** The partner's gross annual salary, calculated from `partnerNetMonthlyPay`. */
   partnerSalary: number;
   partnerWageGrowth: number;
   partnerSuperBalance: number;
@@ -78,6 +96,9 @@ export const defaults: FormInputs = {
   currentAge: 42,
   retirementAge: 47,
   planToAge: 95,
+  // $7,590 a month in the hand is a $120,000 salary under the 2026-27 scale. The two are
+  // kept consistent by applyFieldRules; see the test that pins them together.
+  netMonthlyPay: 7_590,
   salary: 120_000,
   wageGrowth: 0.035,
   superBalance: 250_000,
@@ -95,6 +116,7 @@ export const defaults: FormInputs = {
   returnHome: 0.04,
   includeHealthCosts: true,
   outOfPocketMultiplier: 1,
+  healthInsuranceMonthly: 0,
   privateHealthInsurancePremium: 0,
   healthInflation: 0.035,
   phaseGoGoTo: 75,
@@ -125,6 +147,7 @@ export const defaults: FormInputs = {
   partnerCurrentAge: 40,
   partnerBirthYear: 1986,
   partnerRetirementAge: 50,
+  partnerNetMonthlyPay: 5_890,
   partnerSalary: 90_000,
   partnerWageGrowth: 0.035,
   partnerSuperBalance: 150_000,
@@ -168,11 +191,11 @@ function store(): Storage | null {
   }
 }
 
-export function loadSaved(): FormInputs | null {
+export function loadSaved(ruleset: Ruleset): FormInputs | null {
   try {
     const raw = store()?.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return mergeInputs(JSON.parse(raw) as Partial<FormInputs>);
+    return mergeInputs(JSON.parse(raw) as Partial<FormInputs>, ruleset);
   } catch {
     return null;
   }
@@ -210,13 +233,35 @@ export function clearSaved(): void {
  *    age, the year super becomes accessible.
  * 2. You cannot retire before today. If age passes the planned retirement age, that age
  *    comes with it; if a retirement age is typed below the current age, it is lifted.
+ * 3. Pay is one fact entered as take-home per month, because that is the number people
+ *    know. The gross salary the model runs on is solved back out of it against the tax
+ *    scale in the ruleset. Health insurance is the same idea, but only a x12.
  *
  * Only fields related to the one being edited are touched, so nothing moves under the
  * user unexpectedly.
  */
-export function applyFieldRules(form: FormInputs, key: keyof FormInputs): FormInputs {
+export function applyFieldRules(
+  form: FormInputs,
+  key: keyof FormInputs,
+  ruleset: Ruleset,
+): FormInputs {
   const sane = (n: number) => Number.isFinite(n) && n > 1900 && n < 2200;
   const next = { ...form };
+
+  // Pay, both ways. Editing take-home solves for the gross; a gross arriving from an
+  // imported scenario or a planning lever pushes the take-home figure back the other way.
+  if (key === 'netMonthlyPay') next.salary = grossSalaryFor(next.netMonthlyPay, ruleset);
+  else if (key === 'salary') next.netMonthlyPay = netMonthlyFor(next.salary, ruleset);
+  else if (key === 'partnerNetMonthlyPay') {
+    next.partnerSalary = grossSalaryFor(next.partnerNetMonthlyPay, ruleset);
+  } else if (key === 'partnerSalary') {
+    next.partnerNetMonthlyPay = netMonthlyFor(next.partnerSalary, ruleset);
+  } else if (key === 'healthInsuranceMonthly') {
+    next.privateHealthInsurancePremium = annualFromMonthly(next.healthInsuranceMonthly);
+  } else if (key === 'privateHealthInsurancePremium') {
+    next.healthInsuranceMonthly = monthlyFromAnnual(next.privateHealthInsurancePremium);
+  }
+
   if (key === 'currentAge' && Number.isFinite(next.currentAge)) {
     const y = next.startYear - next.currentAge;
     if (sane(y)) next.birthYear = y;
@@ -258,17 +303,62 @@ export function applyFieldRules(form: FormInputs, key: keyof FormInputs): FormIn
   return next;
 }
 
-export function mergeInputs(incoming: Partial<FormInputs>): FormInputs {
+export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): FormInputs {
   const out = { ...defaults };
+  const took = new Set<keyof FormInputs>();
   for (const key of Object.keys(defaults) as Array<keyof FormInputs>) {
     const v = incoming[key];
     if (v === undefined || v === null) continue;
     if (typeof v !== typeof defaults[key]) continue;
     if (typeof v === 'number' && !Number.isFinite(v)) continue;
     (out as Record<string, unknown>)[key] = v;
+    took.add(key);
+  }
+
+  // A file written before pay was entered as take-home carries a gross salary and no
+  // monthly figure; a hand-edited one can carry both, disagreeing. Whichever side the
+  // file supplied is kept and the other recomputed, so the form never opens showing two
+  // numbers that contradict each other. The monthly figure wins when both are present -
+  // it is the one a person typed.
+  if (took.has('netMonthlyPay')) out.salary = grossSalaryFor(out.netMonthlyPay, ruleset);
+  else if (took.has('salary')) out.netMonthlyPay = netMonthlyFor(out.salary, ruleset);
+  if (took.has('partnerNetMonthlyPay')) {
+    out.partnerSalary = grossSalaryFor(out.partnerNetMonthlyPay, ruleset);
+  } else if (took.has('partnerSalary')) {
+    out.partnerNetMonthlyPay = netMonthlyFor(out.partnerSalary, ruleset);
+  }
+  if (took.has('healthInsuranceMonthly')) {
+    out.privateHealthInsurancePremium = annualFromMonthly(out.healthInsuranceMonthly);
+  } else if (took.has('privateHealthInsurancePremium')) {
+    out.healthInsuranceMonthly = monthlyFromAnnual(out.privateHealthInsurancePremium);
   }
   return out;
 }
+
+/**
+ * The gross annual salary behind a monthly take-home figure.
+ *
+ * Rounded to whole dollars in both directions, which keeps the pair stable: converting
+ * back and forth repeatedly does not drift the number under the user. What it assumes is
+ * the same thing the projection assumes of a working year - salary is the whole of
+ * taxable income. No salary sacrifice, no HELP debt, no other deduction. The super
+ * guarantee is paid on top of salary, so it is correctly absent here.
+ */
+export function grossSalaryFor(netMonthly: number, ruleset: Ruleset): number {
+  if (!Number.isFinite(netMonthly) || netMonthly <= 0) return 0;
+  return Math.round(grossFromNet(netMonthly * 12, ruleset));
+}
+
+/** What a gross annual salary leaves in the hand each month, after tax. */
+export function netMonthlyFor(gross: number, ruleset: Ruleset): number {
+  if (!Number.isFinite(gross) || gross <= 0) return 0;
+  return Math.round(netFromGross(gross, ruleset) / 12);
+}
+
+const annualFromMonthly = (monthly: number) =>
+  Number.isFinite(monthly) && monthly > 0 ? Math.round(monthly * 12) : 0;
+const monthlyFromAnnual = (annual: number) =>
+  Number.isFinite(annual) && annual > 0 ? Math.round(annual / 12) : 0;
 
 export const PRIMARY_ID = 'you';
 export const PARTNER_ID = 'partner';

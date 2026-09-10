@@ -4,7 +4,15 @@ export { preservationAge, unsourcedValues, assertUsable } from './rules';
 export { toReal, toRealRow, toCsv } from './report';
 export { indexRuleset, INDEX_ALL } from './indexation';
 export type { IndexationChoice } from './indexation';
-export { personalIncomeTax, grossIncomeTax, lito, sapto, medicareLevyFor } from './tax';
+export {
+  personalIncomeTax,
+  grossIncomeTax,
+  lito,
+  sapto,
+  medicareLevyFor,
+  netFromGross,
+  grossFromNet,
+} from './tax';
 export { agePension, deemedIncome, minimumDrawdownPercent } from './agePension';
 export {
   outOfPocketAtAge,

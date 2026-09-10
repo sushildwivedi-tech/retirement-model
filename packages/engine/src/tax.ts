@@ -108,3 +108,55 @@ export function personalIncomeTax(
     payable: afterOffsets + medicareLevy,
   };
 }
+
+/** Take-home pay: gross salary less the tax actually payable on it. */
+export function netFromGross(
+  gross: number,
+  ruleset: Ruleset,
+  opts: { saptoEligible: boolean; saptoStatus?: 'single' | 'couplePartnerEach' } = {
+    saptoEligible: false,
+  },
+): number {
+  if (gross <= 0) return 0;
+  return gross - personalIncomeTax(gross, ruleset, opts).payable;
+}
+
+/**
+ * The gross salary that leaves a given amount in the hand - the inverse of
+ * `netFromGross`.
+ *
+ * Solved by bisection rather than algebraically. The relationship is piecewise linear,
+ * but the pieces are not the tax brackets: the LITO taper, the second LITO taper, the
+ * Medicare levy shade-in and SAPTO all break it at their own thresholds, and inverting
+ * that by hand is a standing invitation for one of those edges to be missed. Bisection
+ * uses whatever the ruleset actually says, so a threshold change in a future ruleset
+ * needs no change here. Net pay is strictly increasing in gross - the steepest effective
+ * marginal rate in the scale is well under 100% - so the bisection has a unique root.
+ *
+ * Note what this does *not* model: the super guarantee (paid on top of salary, not out
+ * of it), salary sacrifice, HELP repayments, and any other deduction. It is the same
+ * definition of taxable income the projection uses for a working year.
+ */
+export function grossFromNet(
+  net: number,
+  ruleset: Ruleset,
+  opts: { saptoEligible: boolean; saptoStatus?: 'single' | 'couplePartnerEach' } = {
+    saptoEligible: false,
+  },
+): number {
+  if (!Number.isFinite(net) || net <= 0) return 0;
+  let lo = net; // gross is never below net: tax is never negative.
+  let hi = Math.max(net * 2, 1000);
+  // Grow the upper bound until it over-shoots. Doubling terminates quickly because the
+  // top marginal rate is 45% + 2%, so gross never exceeds roughly twice net.
+  while (netFromGross(hi, ruleset, opts) < net) {
+    hi *= 2;
+    if (hi > 1e12) return hi; // pathological ruleset; better than looping forever.
+  }
+  for (let i = 0; i < 200 && hi - lo > 0.005; i++) {
+    const mid = (lo + hi) / 2;
+    if (netFromGross(mid, ruleset, opts) < net) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}

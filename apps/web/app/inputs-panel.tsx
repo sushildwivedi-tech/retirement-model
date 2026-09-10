@@ -1,7 +1,8 @@
 'use client';
 
-import type { DrawdownStrategy } from '@retirement/engine';
+import type { DrawdownStrategy, Ruleset } from '@retirement/engine';
 import { applyFieldRules, PROVISIONAL, type FormInputs } from './inputs';
+import { money } from './format';
 
 type Role = 'you' | 'assumption';
 
@@ -11,6 +12,11 @@ type Field = {
   kind: 'money' | 'percent' | 'age' | 'year';
   /** Defaults to 'you'. */
   role?: Role;
+  /**
+   * A figure the model works out from this field, shown underneath it and coloured as
+   * calculated. Not an input: there is nowhere to type it.
+   */
+  derived?: (f: FormInputs) => string;
 };
 type Group = {
   title: string;
@@ -36,7 +42,12 @@ const GROUPS: Group[] = [
       { key: 'partnerCurrentAge', label: "Partner's age now", kind: 'age' },
       { key: 'partnerBirthYear', label: "Partner's birth year", kind: 'year' },
       { key: 'partnerRetirementAge', label: 'Partner stops work at', kind: 'age' },
-      { key: 'partnerSalary', label: "Partner's gross salary", kind: 'money' },
+      {
+        key: 'partnerNetMonthlyPay',
+        label: "Partner's take-home pay / month",
+        kind: 'money',
+        derived: (f) => `${money(f.partnerSalary)} gross a year`,
+      },
       { key: 'partnerWageGrowth', label: "Partner's wage growth", kind: 'percent', role: 'assumption' },
     ],
   },
@@ -70,8 +81,14 @@ const GROUPS: Group[] = [
   },
   {
     title: 'Income and saving (while working)',
+    help: 'Pay is what reaches your account each month. The gross salary underneath it is worked out from the tax scale — the model needs the gross for the super guarantee.',
     fields: [
-      { key: 'salary', label: 'Gross salary', kind: 'money' },
+      {
+        key: 'netMonthlyPay',
+        label: 'Take-home pay / month',
+        kind: 'money',
+        derived: (f) => `${money(f.salary)} gross a year`,
+      },
       { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
       { key: 'annualSavings', label: 'Saved outside super each year', kind: 'money' },
       { key: 'voluntarySuperContribution', label: 'Extra super contributions', kind: 'money' },
@@ -132,7 +149,12 @@ const GROUPS: Group[] = [
   {
     title: 'Health costs',
     fields: [
-      { key: 'privateHealthInsurancePremium', label: 'Health insurance / yr', kind: 'money' },
+      {
+        key: 'healthInsuranceMonthly',
+        label: 'Health insurance / month',
+        kind: 'money',
+        derived: (f) => `${money(f.privateHealthInsurancePremium)} a year`,
+      },
       { key: 'outOfPocketMultiplier', label: 'Out-of-pocket vs average', kind: 'percent', role: 'assumption' },
       { key: 'healthInflation', label: 'Health inflation', kind: 'percent', role: 'assumption' },
     ],
@@ -170,18 +192,21 @@ export function InputsPanel({
   form,
   setForm,
   onChange,
+  ruleset,
 }: {
   form: FormInputs;
   setForm: (update: (f: FormInputs) => FormInputs) => void;
   /** Called after any edit, so callers can clear results computed from stale inputs. */
   onChange: () => void;
+  /** Needed to turn take-home pay back into the gross salary the model runs on. */
+  ruleset: Ruleset;
 }) {
   const set = (key: keyof FormInputs, raw: string, kind: Field['kind']) => {
     const n = Number(raw.replace(/[^0-9.\-]/g, ''));
     setForm((f) =>
-      // Age, birth year and the retirement age constrain each other; everything else is
-      // independent. See applyFieldRules.
-      applyFieldRules({ ...f, [key]: kind === 'percent' ? n / 100 : n }, key),
+      // Age, birth year and the retirement age constrain each other, as do take-home pay
+      // and gross salary; everything else is independent. See applyFieldRules.
+      applyFieldRules({ ...f, [key]: kind === 'percent' ? n / 100 : n }, key, ruleset),
     );
     onChange();
   };
@@ -237,7 +262,8 @@ export function InputsPanel({
                 {g.fields.map((f) => {
                   const v = form[f.key] as number;
                   return (
-                    <label key={String(f.key)} className="flex items-center justify-between gap-2 text-sm">
+                    <div key={String(f.key)}>
+                    <label className="flex items-center justify-between gap-2 text-sm">
                       <span className="text-slate-700">
                         {f.label}
                         {PROVISIONAL.includes(f.key) && (
@@ -264,6 +290,19 @@ export function InputsPanel({
                         onChange={(e) => set(f.key, e.target.value, f.kind)}
                       />
                     </label>
+                    {/* Calculated, so it is shown rather than offered as an input -
+                        indigo, matching the legend. Nothing typed, nothing to work out. */}
+                    {f.derived && v > 0 && (
+                      <div className="mt-0.5 text-right text-[11px] text-indigo-700">
+                        <span
+                          className="rounded bg-indigo-50 px-1"
+                          title="Worked out by the model from what you typed — not an input."
+                        >
+                          {f.derived(form)}
+                        </span>
+                      </div>
+                    )}
+                    </div>
                   );
                 })}
               </div>

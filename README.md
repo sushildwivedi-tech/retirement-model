@@ -300,7 +300,16 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    not decoration: it sets your preservation age and therefore the year super becomes
    accessible. And nobody can retire in the past, so if your age passes the planned
    retirement age it comes with you. Both were previously unenforced and produced states
-   that looked like stale fields but were really impossible scenarios.
+   that looked like stale fields but were really impossible scenarios. Pay works the same
+   way in the other direction: you enter what actually reaches your account each month,
+   and the gross salary the model needs — for the super guarantee, which is paid on top
+   of salary — is solved back out of it against the tax scale in the ruleset
+   (`grossFromNet`, bisection rather than a hand-rolled inverse, because the LITO tapers
+   and the Medicare shade-in put kinks in the curve that are not the tax brackets). It
+   assumes salary is the whole of your taxable income: no salary sacrifice, no HELP
+   repayment, no other deduction. Health insurance is entered monthly, as it is billed,
+   for the same reason — it is the figure you know. Both derived figures are shown under
+   the field, coloured as calculated, and there is nowhere to type them.
 4. **Death is an input, not an inference.** Modelling a first death means choosing when.
    Rather than invent a date, it is an explicit scenario event (`kind: 'death'`), default
    off. Phase 4 replaces it with sampling from life tables.

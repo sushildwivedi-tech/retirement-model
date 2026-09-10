@@ -65,12 +65,16 @@ export default function Planner({
   const hydrated = useRef(false);
 
   useEffect(() => {
-    const saved = loadSaved();
+    const saved = loadSaved(ruleset);
     if (saved) {
       setForm(saved);
       setUsingSaved(true);
     }
     hydrated.current = true;
+    // The ruleset is fixed for the life of the page (a server component reads it once),
+    // and this must run on mount only - re-running it would overwrite whatever has been
+    // typed since with the stored copy.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -147,7 +151,7 @@ export default function Planner({
       const parsed = JSON.parse(await file.text()) as Partial<FormInputs>;
       // mergeInputs keeps only known keys of the right type, so a stale or hand-edited
       // file cannot put an unexpected shape into the form.
-      setForm(mergeInputs(parsed));
+      setForm(mergeInputs(parsed, ruleset));
       clearResults();
       setImportError(null);
     } catch {
@@ -529,7 +533,7 @@ export default function Planner({
               </button>
             </div>
           )}
-          <InputsPanel form={form} setForm={setForm} onChange={clearResults} />
+          <InputsPanel form={form} setForm={setForm} onChange={clearResults} ruleset={ruleset} />
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <div className="font-medium">Your details</div>
             <p className="mt-1 text-xs text-slate-600">

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { grossIncomeTax, lito, sapto, personalIncomeTax, medicareLevyFor } from '../src/tax';
+import {
+  grossIncomeTax,
+  lito,
+  sapto,
+  personalIncomeTax,
+  medicareLevyFor,
+  netFromGross,
+  grossFromNet,
+} from '../src/tax';
 import { loadRuleset } from '../src/loadRuleset';
 
 const ruleset = loadRuleset('au-2026-07');
@@ -122,5 +130,65 @@ describe('Medicare levy low-income reduction', () => {
     // A retiree on 40k pays no levy; the same income without SAPTO would attract it.
     expect(medicareLevyFor(40_000, ruleset, true)).toBe(0);
     expect(medicareLevyFor(40_000, ruleset, false)).toBeCloseTo(800, 2);
+  });
+});
+
+describe('net pay and its inverse', () => {
+  it('takes the tax payable off the gross', () => {
+    const gross = 120_000;
+    expect(netFromGross(gross, ruleset)).toBeCloseTo(
+      gross - personalIncomeTax(gross, ruleset).payable,
+      6,
+    );
+  });
+
+  it('pays no tax below the tax-free threshold, so net is gross', () => {
+    expect(netFromGross(18_000, ruleset)).toBeCloseTo(18_000, 6);
+    expect(grossFromNet(18_000, ruleset)).toBeCloseTo(18_000, 2);
+  });
+
+  it.each([1, 15_000, 25_000, 45_000, 60_000, 90_000, 120_000, 190_000, 400_000])(
+    'round-trips a gross salary of %i through net and back',
+    (gross) => {
+      expect(grossFromNet(netFromGross(gross, ruleset), ruleset)).toBeCloseTo(gross, 1);
+    },
+  );
+
+  it('round-trips across the LITO tapers and the Medicare shade-in, where the kinks are', () => {
+    // The awkward band: LITO tapering out, the levy shading in, and the first bracket
+    // boundary all fall between 18k and 50k. A hand-rolled inverse tends to break here.
+    for (let gross = 18_000; gross <= 50_000; gross += 250) {
+      expect(grossFromNet(netFromGross(gross, ruleset), ruleset)).toBeCloseTo(gross, 1);
+    }
+  });
+
+  it('is monotonic: more in the hand always means more gross', () => {
+    let last = -1;
+    for (let net = 1_000; net <= 300_000; net += 1_000) {
+      const g = grossFromNet(net, ruleset);
+      expect(g).toBeGreaterThan(last);
+      last = g;
+    }
+  });
+
+  it('never returns a gross below the net asked for', () => {
+    for (const net of [500, 5_000, 30_000, 100_000, 250_000]) {
+      expect(grossFromNet(net, ruleset)).toBeGreaterThanOrEqual(net - 0.01);
+    }
+  });
+
+  it('treats nothing, and nonsense, as nothing', () => {
+    expect(grossFromNet(0, ruleset)).toBe(0);
+    expect(grossFromNet(-5_000, ruleset)).toBe(0);
+    expect(grossFromNet(Number.NaN, ruleset)).toBe(0);
+    expect(netFromGross(0, ruleset)).toBe(0);
+    expect(netFromGross(-100, ruleset)).toBe(0);
+  });
+
+  it('accounts for SAPTO when the person qualifies, so the same net needs less gross', () => {
+    const net = 30_000;
+    expect(grossFromNet(net, ruleset, { saptoEligible: true })).toBeLessThan(
+      grossFromNet(net, ruleset),
+    );
   });
 });

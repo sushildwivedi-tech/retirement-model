@@ -55,7 +55,7 @@ const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
   currentAge: 'Age now',
   retirementAge: 'Stop work at',
   planToAge: 'Plan to age',
-  salary: 'Salary',
+  netMonthlyPay: 'Take-home pay / month',
   wageGrowth: 'Wage growth',
   annualSavings: 'Saved each year',
   voluntarySuperContribution: 'Extra super',
@@ -77,7 +77,7 @@ const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
   hasPartner: 'Partner',
   partnerCurrentAge: "Partner's age now",
   partnerRetirementAge: 'Partner stops work at',
-  partnerSalary: "Partner's salary",
+  partnerNetMonthlyPay: "Partner's take-home / month",
   partnerSuperBalance: 'Partner super',
   agedCareEnabled: 'Aged care stress test',
   drawdownStrategy: 'Drawdown',
@@ -96,7 +96,9 @@ const PERCENT_FIELDS = new Set<keyof FormInputs>([
   'returnSuper',
 ]);
 const MONEY_FIELDS = new Set<keyof FormInputs>([
+  'netMonthlyPay',
   'salary',
+  'partnerNetMonthlyPay',
   'annualSavings',
   'voluntarySuperContribution',
   'cash',
@@ -143,13 +145,17 @@ export default function CompareView({
   const [editing, setEditing] = useState(0);
 
   useEffect(() => {
-    const saved = loadSaved();
+    const saved = loadSaved(ruleset);
     if (saved) {
       setSides([
         { name: 'Your plan', form: saved },
         { name: 'Alternative', form: saved },
       ]);
     }
+    // The ruleset is fixed for the life of the page (a server component reads it once),
+    // and this must run on mount only - re-running it would overwrite whatever has been
+    // typed since with the stored copy.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ds = useMemo(() => ({ lifeTables, healthCostCurve }), [lifeTables, healthCostCurve]);
@@ -438,6 +444,7 @@ export default function CompareView({
             form={sides[editing].form}
             setForm={(update) => setSide(editing, update)}
             onChange={clearRuns}
+            ruleset={ruleset}
           />
         </div>
       </div>

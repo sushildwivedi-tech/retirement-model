@@ -147,30 +147,30 @@ export const defaults: FormInputs = {
 export const PROVISIONAL: Array<keyof FormInputs> = [];
 
 const STORAGE_KEY = 'retirement-model:inputs:v1';
-const SAVED_AT_KEY = 'retirement-model:savedAt:v1';
 
-/** When the browser copy was last written, so the UI can say which data you are looking at. */
-export function savedAt(): Date | null {
+/**
+ * Where the form is kept between pages.
+ *
+ * sessionStorage, not localStorage, and deliberately: the app starts from the example
+ * every time you open it, rather than quietly resurrecting whatever you typed days ago.
+ * Within a visit your entries survive moving between the three pages and an accidental
+ * reload, which they must - the detail and comparison pages are worthless if they show
+ * the example instead of your plan. Close the tab and it is gone.
+ *
+ * Export is the way to keep a scenario for longer; nothing is written to disk otherwise.
+ */
+function store(): Storage | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(SAVED_AT_KEY);
-    return raw ? new Date(raw) : null;
+    return window.sessionStorage;
   } catch {
     return null;
   }
 }
 
-/**
- * Your own figures, kept in this browser only.
- *
- * They are written to localStorage and never sent anywhere - there is no server to send
- * them to. Clearing site data, or using a different browser or device, starts from the
- * illustrative example again, which is what Export is for.
- */
 export function loadSaved(): FormInputs | null {
-  if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = store()?.getItem(STORAGE_KEY);
     if (!raw) return null;
     return mergeInputs(JSON.parse(raw) as Partial<FormInputs>);
   } catch {
@@ -179,20 +179,16 @@ export function loadSaved(): FormInputs | null {
 }
 
 export function save(inputs: FormInputs): void {
-  if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs));
-    window.localStorage.setItem(SAVED_AT_KEY, new Date().toISOString());
+    store()?.setItem(STORAGE_KEY, JSON.stringify(inputs));
   } catch {
-    // Private windows and blocked site data both throw; losing the save is not fatal.
+    // Private windows and blocked site data both throw; losing the copy is not fatal.
   }
 }
 
 export function clearSaved(): void {
-  if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.localStorage.removeItem(SAVED_AT_KEY);
+    store()?.removeItem(STORAGE_KEY);
   } catch {
     /* ignore */
   }

@@ -23,7 +23,6 @@ import {
   clearSaved,
   defaults,
   loadSaved,
-  savedAt,
   mergeInputs,
   PARTNER_ID,
   PRIMARY_ID,
@@ -124,13 +123,6 @@ export default function Planner({
   const depleted = rows.find((x) => x.shortfall > 0) ?? null;
 
   const [importError, setImportError] = useState<string | null>(null);
-  const [savedStamp, setSavedStamp] = useState<string | null>(null);
-  useEffect(() => {
-    const at = savedAt();
-    setSavedStamp(
-      at ? at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null,
-    );
-  }, [form]);
 
   const clearResults = () => {
     setMc(null);
@@ -524,17 +516,16 @@ export default function Planner({
               there is no obvious way back. */}
           {usingSaved && (
             <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm">
-              <div className="font-medium text-emerald-900">Showing your saved details</div>
+              <div className="font-medium text-emerald-900">Showing your figures</div>
               <p className="mt-1 text-xs text-emerald-900/80">
-                Kept in this browser
-                {savedStamp ? `, last changed ${savedStamp}` : ''}. Every page uses the same
-                copy.
+                Kept while this tab is open, and shared across all three pages. Opening the
+                app again starts from the example — use Export below to keep a scenario.
               </p>
               <button
                 onClick={resetInputs}
                 className="mt-2 rounded border border-emerald-400 bg-white px-2 py-1 text-xs hover:bg-emerald-100"
               >
-                Clear and start from the example
+                Start again from the example
               </button>
             </div>
           )}
@@ -543,8 +534,8 @@ export default function Planner({
             <div className="font-medium">Your details</div>
             <p className="mt-1 text-xs text-slate-600">
               {usingSaved
-                ? 'Saved in this browser only. Nothing is sent anywhere — there is no server to send it to.'
-                : 'These are illustrative example figures. Edit anything and it becomes yours, saved in this browser only.'}
+                ? 'Kept for this visit only, in this tab. Nothing is sent anywhere — there is no server to send it to.'
+                : 'These are illustrative example figures. Edit anything and it becomes yours, for as long as this tab is open.'}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button

@@ -79,16 +79,21 @@ spending $10,000 less are not equivalent sacrifices, and only you can weigh them
 The app ships with **illustrative example figures** — a made-up household, not anyone's
 real finances. Edit any field and it becomes yours.
 
-Whatever you enter is saved in **your own browser** (`localStorage`) and nowhere else.
-There is no account, no database and no server to send it to: the projection, the Monte
-Carlo and the solvers all run in your browser tab. The deployed site is static.
+Whatever you enter is kept **for the visit only**, in the tab, and nowhere else. There is
+no account, no database and no server to send it to: the projection, the Monte Carlo and
+the solvers all run in your browser. The deployed site is static.
+
+Deliberately `sessionStorage` rather than `localStorage`: opening the app starts from the
+example every time, rather than quietly resurrecting figures typed days ago. Within a
+visit your entries survive moving between the three pages and an accidental reload — which
+they must, since the detail and comparison pages are worthless showing the example instead
+of your plan. Close the tab and it is gone.
 
 - **Export** writes your scenario to a JSON file you keep
 - **Import** reads one back, on any browser or device
 - **Reset to example** clears the browser copy and returns to the illustrative figures
 
-Because it is browser-local, clearing site data or switching browser starts from the
-example again. Export is the backup.
+Export is the only durable copy — nothing else outlives the tab.
 
 ## Two pages
 

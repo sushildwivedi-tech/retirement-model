@@ -226,6 +226,113 @@ dd,
     box-shadow: var(--shadow-1);
   }
 
+  /* ---------- saved plans ---------- */
+
+  .plans-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .plans-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink);
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Unsaved work, said in the smallest way that still says it. */
+  .plans-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--assume);
+    flex: none;
+  }
+  .plans-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    cursor: default;
+    background: transparent;
+  }
+  .plans-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 50;
+    width: min(24rem, calc(100vw - 2rem));
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 0.85rem 0.95rem 1rem;
+    box-shadow: var(--shadow-2);
+  }
+  .plans-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  .plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .plans-list li {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .plans-row {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .plans-row:hover {
+    background: var(--surface-sunk);
+  }
+  .plans-row-name {
+    font-size: 0.875rem;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .plans-row-meta {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--ink-mute);
+  }
+  .plans-remove {
+    padding: 0 0.5rem;
+    border-radius: 8px;
+    color: var(--ink-mute);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .plans-remove:hover {
+    background: var(--bad-bg);
+    color: var(--bad);
+  }
+
   /* ---------- surfaces ---------- */
 
   .card {

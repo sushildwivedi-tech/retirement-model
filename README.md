@@ -116,6 +116,47 @@ example that difference is stark: downsizing at 47 is worth 27 years, while wait
 It ranks by outcome, not by what the change costs you: working five more years and
 spending $10,000 less are not equivalent sacrifices, and only you can weigh them.
 
+## Running it on your laptop
+
+```
+npm run app
+```
+
+Builds the site and starts a small local process on `http://127.0.0.1:4173`, which serves
+the app **and gives it somewhere to keep plans**. Stop it with Ctrl+C.
+
+With that running, the bar gains a plan name, **Save**, **Plans** and **History**. A plan
+is a document you come back to: name it, save it, and every save keeps a dated copy. Open
+one months later, change it, save again — and the version you had in January is still
+there to compare against.
+
+Plans are files:
+
+```
+plans/our-plan/plan.json                                the current version
+plans/our-plan/revisions/2026-09-11T02-14-33-901Z.json  every version it has had
+```
+
+Plain JSON, one file per save, deliberately: the thing most likely to outlive this program
+is the files, so they are readable in any editor, diffable, copyable to another machine
+and safe to put in git. No database and no schema to be locked out of. Point
+`RETIREMENT_PLANS_DIR` somewhere else if you want them elsewhere — a synced folder, say.
+`plans/` is gitignored here, because it would hold your real figures.
+
+Opening an old version loads it into the form and *nothing else*; the saved plan still
+holds the newest one until you press **Make current**, which keeps the newer version in
+the history rather than discarding it. The bar says which of the two you are looking at,
+because "Saved" would be true of the form and false of the file.
+
+The server binds to `127.0.0.1` only — it reads and writes files on your machine, and
+nothing on the network has any business reaching it. Plan names are reduced to
+`[a-z0-9-]` before they touch a path, and the resolved path is then checked to be inside
+the plans directory; either check alone would do, and both together mean a bug in one
+cannot turn a request into a write somewhere else on disk.
+
+**None of this is required.** Served as a static site there is no local process, the plans
+bar renders nothing, and the app behaves exactly as described below.
+
 ## Your details stay yours
 
 The app ships with **illustrative example figures** — a made-up household, not anyone's

@@ -31,6 +31,7 @@ import {
 } from './inputs';
 import type { DrawdownStrategy } from '@retirement/engine';
 import { InputsPanel } from './inputs-panel';
+import { PlansBar } from './plans-bar';
 import { useSolver, useBackgroundAge } from './use-solver';
 import { money, pct } from './format';
 import BalanceChart from './balance-chart';
@@ -593,7 +594,15 @@ export default function Planner({
               Compare
             </Link>
           </nav>
-          <span className="stamp ml-auto hidden sm:inline">{r.ruleset}</span>
+          <div className="ml-auto flex items-center gap-4">
+            <PlansBar
+              form={form}
+              setForm={(next) => setForm(next)}
+              onLoad={clearResults}
+              ruleset={ruleset}
+            />
+            <span className="stamp hidden lg:inline">{r.ruleset}</span>
+          </div>
         </div>
       </div>
 

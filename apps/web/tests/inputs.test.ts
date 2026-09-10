@@ -506,3 +506,21 @@ describe('every field the form declares actually exists', () => {
     for (const key of FIELD_KEYS) expect(Object.keys(defaults)).toContain(key);
   });
 });
+
+describe('a plan name and the folder it lands in', () => {
+  it('agree with the server, which is the only reason the client computes it at all', async () => {
+    // Two copies of one rule is a bug waiting to happen, so the two are pinned together.
+    const client = await import('../app/plans');
+    const server = await import('../../desktop/plans.ts');
+    for (const name of [
+      'Our plan',
+      'Plan B — 2026!',
+      '  ',
+      '../../etc/passwd',
+      'A'.repeat(80),
+      'Ünïcodé plan',
+    ]) {
+      expect(client.toSlug(name)).toBe(server.toSlug(name));
+    }
+  });
+});

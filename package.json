@@ -8,9 +8,11 @@
     "apps/*"
   ],
   "scripts": {
-    "test": "npm run test --workspace=@retirement/engine && npm run test --workspace=web",
+    "test": "npm run test --workspace=@retirement/engine && npm run test --workspace=web && npx vitest run --root apps/desktop",
     "typecheck": "npm run typecheck --workspace=@retirement/engine",
     "dev": "npm run dev --workspace=web",
-    "build": "npm run build --workspace=web"
+    "build": "npm run build --workspace=web",
+    "app": "npm run build --workspace=web && node apps/desktop/server.ts",
+    "app:serve": "node apps/desktop/server.ts"
   }
 }

@@ -147,6 +147,18 @@ export const defaults: FormInputs = {
 export const PROVISIONAL: Array<keyof FormInputs> = [];
 
 const STORAGE_KEY = 'retirement-model:inputs:v1';
+const SAVED_AT_KEY = 'retirement-model:savedAt:v1';
+
+/** When the browser copy was last written, so the UI can say which data you are looking at. */
+export function savedAt(): Date | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(SAVED_AT_KEY);
+    return raw ? new Date(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Your own figures, kept in this browser only.
@@ -170,6 +182,7 @@ export function save(inputs: FormInputs): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs));
+    window.localStorage.setItem(SAVED_AT_KEY, new Date().toISOString());
   } catch {
     // Private windows and blocked site data both throw; losing the save is not fatal.
   }
@@ -179,6 +192,7 @@ export function clearSaved(): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(SAVED_AT_KEY);
   } catch {
     /* ignore */
   }

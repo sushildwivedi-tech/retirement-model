@@ -23,6 +23,7 @@ import {
   clearSaved,
   defaults,
   loadSaved,
+  savedAt,
   mergeInputs,
   PARTNER_ID,
   PRIMARY_ID,
@@ -123,6 +124,13 @@ export default function Planner({
   const depleted = rows.find((x) => x.shortfall > 0) ?? null;
 
   const [importError, setImportError] = useState<string | null>(null);
+  const [savedStamp, setSavedStamp] = useState<string | null>(null);
+  useEffect(() => {
+    const at = savedAt();
+    setSavedStamp(
+      at ? at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null,
+    );
+  }, [form]);
 
   const clearResults = () => {
     setMc(null);
@@ -511,6 +519,25 @@ export default function Planner({
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <aside className="space-y-5">
+          {/* A visible statement of WHOSE numbers these are. Without it, a browser copy
+              kept from an earlier visit looks indistinguishable from the example, and
+              there is no obvious way back. */}
+          {usingSaved && (
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm">
+              <div className="font-medium text-emerald-900">Showing your saved details</div>
+              <p className="mt-1 text-xs text-emerald-900/80">
+                Kept in this browser
+                {savedStamp ? `, last changed ${savedStamp}` : ''}. Every page uses the same
+                copy.
+              </p>
+              <button
+                onClick={resetInputs}
+                className="mt-2 rounded border border-emerald-400 bg-white px-2 py-1 text-xs hover:bg-emerald-100"
+              >
+                Clear and start from the example
+              </button>
+            </div>
+          )}
           <InputsPanel form={form} setForm={setForm} onChange={clearResults} />
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <div className="font-medium">Your details</div>

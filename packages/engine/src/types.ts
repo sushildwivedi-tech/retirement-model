@@ -186,6 +186,17 @@ export interface Person {
   wageGrowth: number;
   /** Super accumulation balance at plan start. */
   superBalance: number;
+  /**
+   * What the employer actually puts into super each year, in today's dollars, when that
+   * is more than the legislated minimum - 15.4% in much of the public service, or a
+   * package that names a figure. Indexed with wages, like the salary it accompanies.
+   *
+   * Leave it undefined for an employer paying the super guarantee and no more, which is
+   * the ordinary case: the projection then works the guarantee out itself, including its
+   * cut-off at the maximum contribution base. A value below the legislated minimum is
+   * lifted to it - an employer cannot pay less.
+   */
+  employerSuperContribution?: number;
   /** Additional salary-sacrifice / personal deductible contributions per year, today's dollars. */
   voluntarySuperContribution?: number;
   /**

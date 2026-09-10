@@ -1,7 +1,9 @@
 import {
   grossFromTakeHome,
+  superGuaranteeOn,
   takeHome,
   type DrawdownStrategy,
+  type PayOptions,
   type Ruleset,
   type Scenario,
 } from '@retirement/engine';
@@ -20,6 +22,14 @@ export interface FormInputs {
   netMonthlyPay: number;
   /** Gross annual salary, calculated from `netMonthlyPay` by running the tax scale backwards. */
   salary: number;
+  /**
+   * What the employer puts into super each month, as it appears on a payslip. Defaults to
+   * the legislated minimum on the salary, and follows it: raise your pay and this moves
+   * with it, at whatever rate the two currently imply.
+   */
+  employerSuperMonthly: number;
+  /** Your own contribution into super each month, before tax. `voluntarySuperContribution` x12. */
+  personalSuperMonthly: number;
   wageGrowth: number;
   superBalance: number;
   voluntarySuperContribution: number;
@@ -73,6 +83,10 @@ export interface FormInputs {
   partnerNetMonthlyPay: number;
   /** The partner's gross annual salary, calculated from `partnerNetMonthlyPay`. */
   partnerSalary: number;
+  /** What the partner's employer puts into super each month. */
+  partnerEmployerSuperMonthly: number;
+  /** The partner's own contribution into super each month, before tax. */
+  partnerPersonalSuperMonthly: number;
   partnerWageGrowth: number;
   partnerSuperBalance: number;
   partnerVoluntarySuperContribution: number;
@@ -100,6 +114,9 @@ export const defaults: FormInputs = {
   // kept consistent by applyFieldRules; see the test that pins them together.
   netMonthlyPay: 7_590,
   salary: 120_000,
+  // 12% of $120,000 is $14,400 a year: the super guarantee and nothing above it.
+  employerSuperMonthly: 1_200,
+  personalSuperMonthly: 0,
   wageGrowth: 0.035,
   superBalance: 250_000,
   voluntarySuperContribution: 0,
@@ -149,6 +166,8 @@ export const defaults: FormInputs = {
   partnerRetirementAge: 50,
   partnerNetMonthlyPay: 5_890,
   partnerSalary: 90_000,
+  partnerEmployerSuperMonthly: 900,
+  partnerPersonalSuperMonthly: 0,
   partnerWageGrowth: 0.035,
   partnerSuperBalance: 150_000,
   partnerVoluntarySuperContribution: 0,
@@ -248,30 +267,11 @@ export function applyFieldRules(
   const sane = (n: number) => Number.isFinite(n) && n > 1900 && n < 2200;
   const next = { ...form };
 
-  // Pay, both ways. Editing take-home solves for the gross; a gross arriving from an
-  // imported scenario or a planning lever pushes the take-home figure back the other way.
-  if (key === 'netMonthlyPay') {
-    next.salary = grossSalaryFor(next.netMonthlyPay, ruleset, next.voluntarySuperContribution);
-  } else if (key === 'salary') {
-    next.netMonthlyPay = netMonthlyFor(next.salary, ruleset, next.voluntarySuperContribution);
-  } else if (key === 'voluntarySuperContribution') {
-    // Sacrificing more does not raise your salary - it lowers what reaches the bank. So
-    // the gross holds and the take-home moves, which is also the honest way to show what
-    // the lever costs.
-    next.netMonthlyPay = netMonthlyFor(next.salary, ruleset, next.voluntarySuperContribution);
-  } else if (key === 'partnerNetMonthlyPay') {
-    next.partnerSalary = grossSalaryFor(
-      next.partnerNetMonthlyPay,
-      ruleset,
-      next.partnerVoluntarySuperContribution,
-    );
-  } else if (key === 'partnerSalary' || key === 'partnerVoluntarySuperContribution') {
-    next.partnerNetMonthlyPay = netMonthlyFor(
-      next.partnerSalary,
-      ruleset,
-      next.partnerVoluntarySuperContribution,
-    );
-  } else if (key === 'healthInsuranceMonthly') {
+  // Pay: three payslip lines and the salary behind them, kept consistent. See applyPayRules.
+  applyPayRules(next, key, ruleset, YOUR_PAY);
+  applyPayRules(next, key, ruleset, PARTNER_PAY);
+
+  if (key === 'healthInsuranceMonthly') {
     next.privateHealthInsurancePremium = annualFromMonthly(next.healthInsuranceMonthly);
   } else if (key === 'privateHealthInsurancePremium') {
     next.healthInsuranceMonthly = monthlyFromAnnual(next.privateHealthInsurancePremium);
@@ -335,24 +335,8 @@ export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): Fo
   // file supplied is kept and the other recomputed, so the form never opens showing two
   // numbers that contradict each other. The monthly figure wins when both are present -
   // it is the one a person typed.
-  if (took.has('netMonthlyPay')) {
-    out.salary = grossSalaryFor(out.netMonthlyPay, ruleset, out.voluntarySuperContribution);
-  } else if (took.has('salary') || took.has('voluntarySuperContribution')) {
-    out.netMonthlyPay = netMonthlyFor(out.salary, ruleset, out.voluntarySuperContribution);
-  }
-  if (took.has('partnerNetMonthlyPay')) {
-    out.partnerSalary = grossSalaryFor(
-      out.partnerNetMonthlyPay,
-      ruleset,
-      out.partnerVoluntarySuperContribution,
-    );
-  } else if (took.has('partnerSalary') || took.has('partnerVoluntarySuperContribution')) {
-    out.partnerNetMonthlyPay = netMonthlyFor(
-      out.partnerSalary,
-      ruleset,
-      out.partnerVoluntarySuperContribution,
-    );
-  }
+  reconcilePay(out, took, ruleset, YOUR_PAY);
+  reconcilePay(out, took, ruleset, PARTNER_PAY);
   if (took.has('healthInsuranceMonthly')) {
     out.privateHealthInsurancePremium = annualFromMonthly(out.healthInsuranceMonthly);
   } else if (took.has('privateHealthInsurancePremium')) {
@@ -377,16 +361,164 @@ export function mergeInputs(incoming: Partial<FormInputs>, ruleset: Ruleset): Fo
 export function grossSalaryFor(
   netMonthly: number,
   ruleset: Ruleset,
-  salarySacrifice = 0,
+  opts: PayOptions = {},
 ): number {
   if (!Number.isFinite(netMonthly) || netMonthly <= 0) return 0;
-  return Math.round(grossFromTakeHome(netMonthly * 12, ruleset, { salarySacrifice }));
+  return Math.round(grossFromTakeHome(netMonthly * 12, ruleset, opts));
 }
 
 /** What a gross annual salary leaves in the hand each month, after sacrifice and tax. */
-export function netMonthlyFor(gross: number, ruleset: Ruleset, salarySacrifice = 0): number {
+export function netMonthlyFor(gross: number, ruleset: Ruleset, opts: PayOptions = {}): number {
   if (!Number.isFinite(gross) || gross <= 0) return 0;
-  return Math.round(takeHome(gross, ruleset, { salarySacrifice }).net / 12);
+  return Math.round(takeHome(gross, ruleset, opts).net / 12);
+}
+
+/** The four form fields that describe one person's pay, so the rules can be written once. */
+interface PayFields {
+  net: 'netMonthlyPay' | 'partnerNetMonthlyPay';
+  gross: 'salary' | 'partnerSalary';
+  employer: 'employerSuperMonthly' | 'partnerEmployerSuperMonthly';
+  ownMonthly: 'personalSuperMonthly' | 'partnerPersonalSuperMonthly';
+  ownAnnual: 'voluntarySuperContribution' | 'partnerVoluntarySuperContribution';
+}
+
+const YOUR_PAY: PayFields = {
+  net: 'netMonthlyPay',
+  gross: 'salary',
+  employer: 'employerSuperMonthly',
+  ownMonthly: 'personalSuperMonthly',
+  ownAnnual: 'voluntarySuperContribution',
+};
+
+const PARTNER_PAY: PayFields = {
+  net: 'partnerNetMonthlyPay',
+  gross: 'partnerSalary',
+  employer: 'partnerEmployerSuperMonthly',
+  ownMonthly: 'partnerPersonalSuperMonthly',
+  ownAnnual: 'partnerVoluntarySuperContribution',
+};
+
+/**
+ * What the employer is currently paying, expressed as the form's own two figures imply.
+ *
+ * Either they are on the legislated minimum - the ordinary case - or they pay some rate
+ * above it. Which of the two matters: the minimum stops at the maximum contribution base,
+ * whereas an employer who has agreed to 15.4% pays it on the whole salary. Keeping the
+ * distinction means a pay rise moves the figure the right way in both cases.
+ */
+function employerBasis(gross: number, monthly: number, ruleset: Ruleset) {
+  const minimum = superGuaranteeOn(gross, ruleset);
+  // Within a dollar a month of the minimum counts as being on it; the fields are rounded.
+  const atMinimum = !(gross > 0) || Math.abs(monthly * 12 - minimum) < 12;
+  return { atMinimum, rate: gross > 0 ? (monthly * 12) / gross : 0, minimum };
+}
+
+type EmployerBasis = ReturnType<typeof employerBasis>;
+
+/** What the employer would put in per month at a different salary, on the same basis. */
+function employerMonthlyAt(gross: number, basis: EmployerBasis, ruleset: Ruleset): number {
+  const minimum = Math.round(superGuaranteeOn(gross, ruleset) / 12);
+  if (basis.atMinimum) return minimum;
+  return Math.max(minimum, Math.round((basis.rate * gross) / 12));
+}
+
+/** How the employer's contribution enters the take-home sum: through the concessional cap. */
+function payOptions(
+  form: FormInputs,
+  f: PayFields,
+  basis: EmployerBasis,
+  solving: boolean,
+): PayOptions {
+  const salarySacrifice = form[f.ownAnnual];
+  if (basis.atMinimum) return { salarySacrifice };
+  // Solving for the salary: the employer's contribution moves with it, so pass the rate
+  // and let the engine keep the two together at whatever salary it lands on.
+  return solving
+    ? { salarySacrifice, employerSuperRate: basis.rate }
+    : { salarySacrifice, employerSuper: form[f.employer] * 12 };
+}
+
+/**
+ * Keep one person's pay fields consistent with each other.
+ *
+ * Three of them come off a payslip - what reaches the bank, what the employer puts into
+ * super, what you put in yourself - and the gross salary the model runs on is behind all
+ * three. Which one holds still depends on what was edited:
+ *
+ * - Type a take-home figure and the salary is solved to match it.
+ * - Type a salary sacrifice and the salary holds: sacrificing more does not earn you
+ *   more, it lowers what reaches the bank. That is also the honest way to show the cost.
+ * - Type an employer contribution and only the cap moves - it is paid on top of salary,
+ *   so it cannot change take-home except by squeezing what you can sacrifice.
+ * - Change the salary from an import or a lever and everything else follows it.
+ */
+function applyPayRules(
+  next: FormInputs,
+  key: keyof FormInputs,
+  ruleset: Ruleset,
+  f: PayFields,
+): void {
+  const basis = employerBasis(next[f.gross], next[f.employer], ruleset);
+
+  if (key === f.ownMonthly) next[f.ownAnnual] = Math.max(0, Math.round(next[f.ownMonthly] * 12));
+  else if (key === f.ownAnnual) {
+    next[f.ownMonthly] = Math.max(0, Math.round(next[f.ownAnnual] / 12));
+  }
+
+  if (key === f.net) {
+    next[f.gross] = grossSalaryFor(next[f.net], ruleset, payOptions(next, f, basis, true));
+    next[f.employer] = employerMonthlyAt(next[f.gross], basis, ruleset);
+  } else if (
+    key === f.gross ||
+    key === f.employer ||
+    key === f.ownMonthly ||
+    key === f.ownAnnual
+  ) {
+    if (key === f.gross) {
+      // The salary set directly rather than solved for - an import, or a lever. The old
+      // salary is already gone by the time the rules run, so there is no rate to rescale
+      // by: the employer's contribution stays as it was, lifted only if the new salary's
+      // legislated minimum has overtaken it.
+      next[f.employer] = Math.max(
+        next[f.employer],
+        Math.round(superGuaranteeOn(next[f.gross], ruleset) / 12),
+      );
+    }
+    next[f.net] = netMonthlyFor(next[f.gross], ruleset, payOptions(next, f, basis, false));
+  }
+}
+
+/**
+ * Work out whichever side of a person's pay an imported file left out.
+ *
+ * A scenario saved before pay was entered as take-home carries a gross salary and no
+ * monthly figures at all; a hand-edited one can carry both, disagreeing. The typed
+ * monthly figure wins where there is one, because that is what a person actually knows.
+ */
+function reconcilePay(
+  out: FormInputs,
+  took: Set<keyof FormInputs>,
+  ruleset: Ruleset,
+  f: PayFields,
+): void {
+  if (took.has(f.ownMonthly)) out[f.ownAnnual] = Math.max(0, Math.round(out[f.ownMonthly] * 12));
+  else if (took.has(f.ownAnnual)) {
+    out[f.ownMonthly] = Math.max(0, Math.round(out[f.ownAnnual] / 12));
+  }
+
+  const basis = employerBasis(out[f.gross], out[f.employer], ruleset);
+  if (took.has(f.net)) {
+    // A file that names the employer's contribution in dollars is believed as dollars,
+    // rather than being turned into a rate and rescaled by the salary we solve for.
+    const opts = payOptions(out, f, basis, !took.has(f.employer));
+    out[f.gross] = grossSalaryFor(out[f.net], ruleset, opts);
+    if (!took.has(f.employer)) out[f.employer] = employerMonthlyAt(out[f.gross], basis, ruleset);
+  } else if (took.has(f.gross) || took.has(f.ownAnnual) || took.has(f.employer)) {
+    if (took.has(f.gross) && !took.has(f.employer)) {
+      out[f.employer] = employerMonthlyAt(out[f.gross], basis, ruleset);
+    }
+    out[f.net] = netMonthlyFor(out[f.gross], ruleset, payOptions(out, f, basis, false));
+  }
 }
 
 const annualFromMonthly = (monthly: number) =>
@@ -414,6 +546,10 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       salary: f.salary,
       wageGrowth: f.wageGrowth,
       superBalance: f.superBalance,
+      // Passed as dollars, always. The engine lifts anything below the legislated
+      // minimum, and the maximum contribution base is wage-indexed exactly as the salary
+      // is - so a figure that starts at the minimum stays at it, cap and all.
+      employerSuperContribution: f.employerSuperMonthly * 12,
       voluntarySuperContribution: f.voluntarySuperContribution,
       sex: f.sex === 'unspecified' ? undefined : f.sex,
       partTimeIncome:
@@ -436,6 +572,7 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       salary: f.partnerSalary,
       wageGrowth: f.partnerWageGrowth,
       superBalance: f.partnerSuperBalance,
+      employerSuperContribution: f.partnerEmployerSuperMonthly * 12,
       voluntarySuperContribution: f.partnerVoluntarySuperContribution,
       sex: f.partnerSex === 'unspecified' ? undefined : f.partnerSex,
       partTimeIncome:

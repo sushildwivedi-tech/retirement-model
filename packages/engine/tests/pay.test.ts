@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { takeHome, grossFromTakeHome } from '../src/pay';
+import { takeHome, grossFromTakeHome, superGuaranteeOn } from '../src/pay';
 import { netFromGross, personalIncomeTax } from '../src/tax';
 import { loadRuleset } from '../src/loadRuleset';
 
@@ -125,5 +125,72 @@ describe('the gross behind a take-home figure', () => {
   it('treats nothing as nothing', () => {
     expect(grossFromTakeHome(0, ruleset, { salarySacrifice: 10_000 })).toBe(0);
     expect(grossFromTakeHome(-1, ruleset)).toBe(0);
+  });
+});
+
+describe('an employer paying more than the minimum', () => {
+  it('reports the guarantee as the legislated minimum on the salary', () => {
+    expect(superGuaranteeOn(120_000, ruleset)).toBeCloseTo(120_000 * sgRate, 6);
+  });
+
+  it('stops the guarantee at the maximum contribution base', () => {
+    const base = ruleset.super.maximumContributionBaseAnnual.value;
+    expect(superGuaranteeOn(500_000, ruleset)).toBeCloseTo(base * sgRate, 6);
+  });
+
+  it('leaves less room to sacrifice into, because the cap covers both', () => {
+    const publicService = 120_000 * 0.154;
+    const p = takeHome(120_000, ruleset, {
+      salarySacrifice: 30_000,
+      employerSuper: publicService,
+    });
+    expect(p.salarySacrifice).toBeCloseTo(cap - publicService, 6);
+    expect(p.salarySacrifice).toBeLessThan(
+      takeHome(120_000, ruleset, { salarySacrifice: 30_000 }).salarySacrifice,
+    );
+  });
+
+  it('does not touch take-home, because it is paid on top of salary', () => {
+    const plain = takeHome(120_000, ruleset, { salarySacrifice: 5_000 });
+    const generous = takeHome(120_000, ruleset, {
+      salarySacrifice: 5_000,
+      employerSuper: 120_000 * 0.154,
+    });
+    expect(generous.net).toBeCloseTo(plain.net, 6);
+  });
+
+  it('is ignored when it is below the minimum, which an employer cannot pay', () => {
+    const p = takeHome(120_000, ruleset, { salarySacrifice: 30_000, employerSuper: 1_000 });
+    expect(p.salarySacrifice).toBeCloseTo(cap - 120_000 * sgRate, 6);
+  });
+
+  it('round-trips the gross behind a take-home figure with the smaller room', () => {
+    const opts = { salarySacrifice: 25_000, employerSuper: 120_000 * 0.154 };
+    const net = takeHome(120_000, ruleset, opts).net;
+    expect(grossFromTakeHome(net, ruleset, opts)).toBeCloseTo(120_000, 1);
+  });
+});
+
+describe('an employer contribution given as a rate', () => {
+  it('agrees with the same contribution given in dollars', () => {
+    const byRate = takeHome(120_000, ruleset, {
+      salarySacrifice: 30_000,
+      employerSuperRate: 0.154,
+    });
+    const byAmount = takeHome(120_000, ruleset, {
+      salarySacrifice: 30_000,
+      employerSuper: 120_000 * 0.154,
+    });
+    expect(byRate.salarySacrifice).toBeCloseTo(byAmount.salarySacrifice, 6);
+  });
+
+  it('keeps the two consistent while solving for the salary', () => {
+    // The point of the rate form: a bigger salary means a bigger employer contribution,
+    // which leaves less cap room, which trims the sacrifice, which raises taxable income.
+    const opts = { salarySacrifice: 25_000, employerSuperRate: 0.154 };
+    const net = takeHome(140_000, ruleset, opts).net;
+    const solved = grossFromTakeHome(net, ruleset, opts);
+    expect(solved).toBeCloseTo(140_000, 1);
+    expect(takeHome(solved, ruleset, opts).net).toBeCloseTo(net, 1);
   });
 });

@@ -310,12 +310,21 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    and the gross salary the model needs — for the super guarantee, which is paid on top
    of salary — is solved back out of it against the tax scale in the ruleset
    (`grossFromNet`, bisection rather than a hand-rolled inverse, because the LITO tapers
-   and the Medicare shade-in put kinks in the curve that are not the tax brackets). Salary sacrifice
+   and the Medicare shade-in put kinks in the curve that are not the tax brackets). The section asks for
+   the three lines off a payslip — what reaches your account, what your employer puts
+   into super, what you put in yourself — all monthly, because that is how a payslip
+   states them. Salary sacrifice
    is taken off before the tax, which is the whole point of sacrificing: $10,000 into
    super costs about $6,100 of take-home at a 39% marginal rate, and the field says so.
    A sacrifice the concessional cap will not take is trimmed to what fits — the same
    trim the projection applies year by year, so the figure quoted is the figure that
-   actually goes in. What is still assumed away: HELP repayments, reportable fringe
+   actually goes in. Employer super defaults to the legislated guarantee on the
+   salary and follows it, but can be set higher — 15.4%, as much of the public service
+   pays, or whatever a package names. It is paid on top of salary, so raising it does not
+   cut your take-home; what it does cut is the room left under the concessional cap, and
+   a sacrifice squeezed out by that stays in your pay and is taxed there. A figure below
+   the guarantee is left as typed and the model uses the minimum instead — an employer
+   cannot pay less. What is still assumed away: HELP repayments, reportable fringe
    benefits, and the Division 293 surcharge. Health insurance is entered monthly, as it
    is billed, for the same reason — it is the figure you know. Both derived figures are shown under
    the field, coloured as calculated, and there is nowhere to type them.

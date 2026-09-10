@@ -1,6 +1,27 @@
 import type { Ruleset } from './types';
 import { grossFromNet, netFromGross, personalIncomeTax } from './tax';
 
+export interface PayOptions {
+  /** Salary sacrifice wanted per year, before the concessional cap has its say. */
+  salarySacrifice?: number;
+  /** What the employer puts in per year, if more than the legislated minimum. */
+  employerSuper?: number;
+  /**
+   * The employer's contribution as a rate on salary, e.g. 0.154. Use this rather than
+   * `employerSuper` when solving for the salary behind a take-home figure: the two move
+   * together, and a rate keeps them consistent at whatever salary the solve lands on.
+   * Takes precedence over `employerSuper`.
+   */
+  employerSuperRate?: number;
+  saptoEligible?: boolean;
+}
+
+/** What the employer puts in at a given salary, from whichever of the two options is set. */
+function employerSuperOn(gross: number, opts: PayOptions): number | undefined {
+  if (opts.employerSuperRate) return opts.employerSuperRate * gross;
+  return opts.employerSuper;
+}
+
 export interface PayBreakdown {
   /** Gross annual salary, before anything comes out of it. */
   gross: number;
@@ -22,6 +43,20 @@ export interface PayBreakdown {
 }
 
 /**
+ * The super guarantee on a salary: the legislated minimum an employer must pay.
+ *
+ * It stops at the maximum contribution base, which is set so that the guarantee on it is
+ * almost exactly the concessional cap.
+ */
+export function superGuaranteeOn(gross: number, ruleset: Ruleset): number {
+  if (!Number.isFinite(gross) || gross <= 0) return 0;
+  return (
+    Math.min(gross, ruleset.super.maximumContributionBaseAnnual.value) *
+    ruleset.super.guaranteeRate.value
+  );
+}
+
+/**
  * How much of a wanted salary sacrifice actually fits.
  *
  * The concessional cap covers the super guarantee as well, so the room left is the cap
@@ -33,9 +68,17 @@ export interface PayBreakdown {
  *
  * The salary itself is the other limit: you cannot sacrifice more of it than you earn.
  */
-function sacrificeThatFits(gross: number, wanted: number, ruleset: Ruleset) {
-  const sg = Math.min(gross, ruleset.super.maximumContributionBaseAnnual.value) *
+function sacrificeThatFits(
+  gross: number,
+  wanted: number,
+  ruleset: Ruleset,
+  employerSuper?: number,
+) {
+  const minimum = Math.min(gross, ruleset.super.maximumContributionBaseAnnual.value) *
     ruleset.super.guaranteeRate.value;
+  // An employer paying above the minimum uses more of the cap, leaving less room to
+  // sacrifice into. Not a detail: at 15.4% the room disappears a long way sooner.
+  const sg = employerSuper ? Math.max(minimum, employerSuper) : minimum;
   const room = Math.max(0, ruleset.super.concessionalCap.value - sg);
   const made = Math.max(0, Math.min(wanted, room, gross));
   return { sg, made, refused: Math.max(0, wanted - made) };
@@ -54,11 +97,11 @@ function sacrificeThatFits(gross: number, wanted: number, ruleset: Ruleset) {
 export function takeHome(
   gross: number,
   ruleset: Ruleset,
-  opts: { salarySacrifice?: number; saptoEligible?: boolean } = {},
+  opts: PayOptions = {},
 ): PayBreakdown {
   const g = Number.isFinite(gross) && gross > 0 ? gross : 0;
   const wanted = Number.isFinite(opts.salarySacrifice ?? 0) ? Math.max(0, opts.salarySacrifice ?? 0) : 0;
-  const { sg, made, refused } = sacrificeThatFits(g, wanted, ruleset);
+  const { sg, made, refused } = sacrificeThatFits(g, wanted, ruleset, employerSuperOn(g, opts));
   const taxableIncome = Math.max(0, g - made);
   const tax = personalIncomeTax(taxableIncome, ruleset, {
     saptoEligible: opts.saptoEligible ?? false,
@@ -87,7 +130,7 @@ export function takeHome(
 export function grossFromTakeHome(
   net: number,
   ruleset: Ruleset,
-  opts: { salarySacrifice?: number; saptoEligible?: boolean } = {},
+  opts: PayOptions = {},
 ): number {
   if (!Number.isFinite(net) || net <= 0) return 0;
   const wanted = Math.max(0, opts.salarySacrifice ?? 0);
@@ -97,7 +140,9 @@ export function grossFromTakeHome(
   // The taxable income that produces this take-home, then the sacrifice back on top. Right
   // whenever the whole sacrifice fits, which is the ordinary case.
   const guess = grossFromNet(net, ruleset, taxOpts) + wanted;
-  if (sacrificeThatFits(guess, wanted, ruleset).made === wanted) return guess;
+  if (sacrificeThatFits(guess, wanted, ruleset, employerSuperOn(guess, opts)).made === wanted) {
+    return guess;
+  }
 
   let lo = grossFromNet(net, ruleset, taxOpts); // no sacrifice made at all
   let hi = guess; // the whole of it made

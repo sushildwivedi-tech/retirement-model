@@ -1,8 +1,13 @@
 'use client';
 
-import { takeHome, type DrawdownStrategy, type Ruleset } from '@retirement/engine';
+import {
+  superGuaranteeOn,
+  takeHome,
+  type DrawdownStrategy,
+  type Ruleset,
+} from '@retirement/engine';
 import { applyFieldRules, PROVISIONAL, type FormInputs } from './inputs';
-import { money } from './format';
+import { money, pct } from './format';
 
 type Role = 'you' | 'assumption';
 
@@ -40,14 +45,37 @@ type Group = {
  * take-home - the gap is the point of doing it. Worth stating plainly, because the field
  * above it is the one number in the form that buys something for less than it says.
  */
-function sacrificeNote(gross: number, wanted: number, ruleset: Ruleset): string {
+function sacrificeNote(
+  gross: number,
+  wanted: number,
+  employerMonthly: number,
+  ruleset: Ruleset,
+): string {
   if (!(gross > 0) || !(wanted > 0)) return '';
-  const p = takeHome(gross, ruleset, { salarySacrifice: wanted });
-  const cost = takeHome(gross, ruleset).net - p.net;
+  const employerSuper = employerMonthly * 12;
+  const p = takeHome(gross, ruleset, { salarySacrifice: wanted, employerSuper });
+  const cost = takeHome(gross, ruleset, { employerSuper }).net - p.net;
   const costs = `costs ${money(Math.round(cost))} of take-home`;
   return p.salarySacrificeRefused > 1
     ? `Only ${money(Math.round(p.salarySacrifice))} fits under the cap — ${costs}`
     : `Before tax, so it ${costs}`;
+}
+
+/**
+ * What the employer's contribution is, in the terms a payslip would put it - and whether
+ * it is the legislated minimum or more than that.
+ */
+function employerNote(gross: number, monthly: number, ruleset: Ruleset): string {
+  if (!(gross > 0)) return '';
+  const minimum = superGuaranteeOn(gross, ruleset);
+  const rate = ruleset.super.guaranteeRate.value;
+  const annual = monthly * 12;
+  if (annual < minimum - 12) {
+    return `Below the ${pct(rate)} minimum — the model uses ${money(Math.round(minimum / 12))}`;
+  }
+  // No pronoun: the same note sits under the partner's field.
+  if (annual <= minimum + 12) return `${pct(rate)} of salary — the legislated minimum`;
+  return `${pct(annual / gross)} of salary — above the ${pct(rate)} minimum`;
 }
 
 const GROUPS: Group[] = [
@@ -61,9 +89,9 @@ const GROUPS: Group[] = [
       { key: 'partnerRetirementAge', label: 'Partner stops work at', kind: 'age' },
       {
         key: 'partnerNetMonthlyPay',
-        label: "Partner's take-home pay / month",
+        label: "Partner's salary in their account / month",
         kind: 'money',
-        derived: (f) => `${money(f.partnerSalary)} gross a year`,
+        derived: (f) => (f.partnerSalary > 0 ? `${money(f.partnerSalary)} gross a year` : ''),
       },
       { key: 'partnerWageGrowth', label: "Partner's wage growth", kind: 'percent', role: 'assumption' },
     ],
@@ -74,10 +102,22 @@ const GROUPS: Group[] = [
     fields: [
       { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
       {
-        key: 'partnerVoluntarySuperContribution',
-        label: 'Salary sacrifice / yr',
+        key: 'partnerEmployerSuperMonthly',
+        label: 'From their employer / month',
         kind: 'money',
-        derived: (f, r) => sacrificeNote(f.partnerSalary, f.partnerVoluntarySuperContribution, r),
+        derived: (f, r) => employerNote(f.partnerSalary, f.partnerEmployerSuperMonthly, r),
+      },
+      {
+        key: 'partnerPersonalSuperMonthly',
+        label: 'They put in / month',
+        kind: 'money',
+        derived: (f, r) =>
+          sacrificeNote(
+            f.partnerSalary,
+            f.partnerVoluntarySuperContribution,
+            f.partnerEmployerSuperMonthly,
+            r,
+          ),
       },
     ],
   },
@@ -103,22 +143,29 @@ const GROUPS: Group[] = [
   },
   {
     title: 'Income and saving (while working)',
-    help: 'Pay is what reaches your account each month, after any salary sacrifice and after tax. The gross salary underneath it is worked out from the tax scale — the model needs the gross for the super guarantee.',
+    help: 'The three figures off your payslip. Pay is what reaches your account, after anything you put into super and after tax; the gross salary underneath it is worked out from the tax scale. Employer super is paid on top of salary, so it does not come out of your pay.',
     fields: [
       {
         key: 'netMonthlyPay',
-        label: 'Take-home pay / month',
+        label: 'Salary in your account / month',
         kind: 'money',
-        derived: (f) => `${money(f.salary)} gross a year`,
+        derived: (f) => (f.salary > 0 ? `${money(f.salary)} gross a year` : ''),
+      },
+      {
+        key: 'employerSuperMonthly',
+        label: 'Super from your employer / month',
+        kind: 'money',
+        derived: (f, r) => employerNote(f.salary, f.employerSuperMonthly, r),
+      },
+      {
+        key: 'personalSuperMonthly',
+        label: 'Super you put in / month',
+        kind: 'money',
+        derived: (f, r) =>
+          sacrificeNote(f.salary, f.voluntarySuperContribution, f.employerSuperMonthly, r),
       },
       { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
       { key: 'annualSavings', label: 'Saved outside super each year', kind: 'money' },
-      {
-        key: 'voluntarySuperContribution',
-        label: 'Salary sacrifice into super / yr',
-        kind: 'money',
-        derived: (f, r) => sacrificeNote(f.salary, f.voluntarySuperContribution, r),
-      },
     ],
   },
   {
@@ -180,7 +227,10 @@ const GROUPS: Group[] = [
         key: 'healthInsuranceMonthly',
         label: 'Health insurance / month',
         kind: 'money',
-        derived: (f) => `${money(f.privateHealthInsurancePremium)} a year`,
+        derived: (f) =>
+          f.privateHealthInsurancePremium > 0
+            ? `${money(f.privateHealthInsurancePremium)} a year`
+            : '',
       },
       { key: 'outOfPocketMultiplier', label: 'Out-of-pocket vs average', kind: 'percent', role: 'assumption' },
       { key: 'healthInflation', label: 'Health inflation', kind: 'percent', role: 'assumption' },
@@ -319,7 +369,7 @@ export function InputsPanel({
                     </label>
                     {/* Calculated, so it is shown rather than offered as an input -
                         indigo, matching the legend. Nothing typed, nothing to work out. */}
-                    {f.derived && v > 0 && f.derived(form, ruleset) !== '' && (
+                    {f.derived && f.derived(form, ruleset) !== '' && (
                       <div className="mt-0.5 text-right text-[11px] text-indigo-700">
                         <span
                           className="rounded bg-indigo-50 px-1"

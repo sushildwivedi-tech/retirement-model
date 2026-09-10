@@ -335,7 +335,12 @@ export function project(
     for (const p of alive) {
       if (salaryOf[p.id] <= 0) continue;
       const contributionBase = baseContributionBase * wageIndex(p);
-      const sg = Math.min(salaryOf[p.id], contributionBase) * sgRate;
+      // The legislated minimum, which stops at the maximum contribution base - and then
+      // whatever the employer actually pays, if that is more. See Person.employerSuperContribution.
+      const minimumSg = Math.min(salaryOf[p.id], contributionBase) * sgRate;
+      const sg = p.employerSuperContribution
+        ? Math.max(minimumSg, p.employerSuperContribution * wageIndex(p))
+        : minimumSg;
       const capNow = Math.floor((baseConcessionalCap * wageIndex(p)) / 2500) * 2500;
       const wanted = (p.voluntarySuperContribution ?? 0) * cpiIndex;
       const voluntary = Math.min(wanted, Math.max(0, capNow - sg));

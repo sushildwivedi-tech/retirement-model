@@ -377,3 +377,40 @@ describe('the probabilistic solver for a couple', () => {
     expect(r.notes.join(' ')).not.toMatch(/Both stop together/);
   });
 });
+
+describe('an employer paying above the super guarantee', () => {
+  const withEmployerSuper = (annual?: number) => ({
+    ...baseCase,
+    household: {
+      ...baseCase.household,
+      people: [{ ...baseCase.household.people[0], employerSuperContribution: annual }],
+    },
+  });
+
+  it('puts more into super than the guarantee alone would', () => {
+    const salary = baseCase.household.people[0].salary;
+    const plain = project(withEmployerSuper(undefined), ruleset, datasets);
+    const generous = project(withEmployerSuper(salary * 0.154), ruleset, datasets);
+    expect(generous.rows[0].contributions.superGuarantee).toBeGreaterThan(
+      plain.rows[0].contributions.superGuarantee,
+    );
+    expect(generous.rows[0].contributions.superGuarantee).toBeCloseTo(salary * 0.154, 0);
+  });
+
+  it('is lifted to the legislated minimum when it is set too low', () => {
+    const plain = project(withEmployerSuper(undefined), ruleset, datasets);
+    const stingy = project(withEmployerSuper(1_000), ruleset, datasets);
+    expect(stingy.rows[0].contributions.superGuarantee).toBeCloseTo(
+      plain.rows[0].contributions.superGuarantee,
+      6,
+    );
+  });
+
+  it('grows with wages, like the salary it accompanies', () => {
+    const salary = baseCase.household.people[0].salary;
+    const p = project(withEmployerSuper(salary * 0.154), ruleset, datasets);
+    expect(p.rows[1].contributions.superGuarantee).toBeGreaterThan(
+      p.rows[0].contributions.superGuarantee,
+    );
+  });
+});

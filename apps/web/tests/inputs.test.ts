@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { netFromGross, takeHome, type Ruleset } from '@retirement/engine';
+import { netFromGross, superGuaranteeOn, takeHome, type Ruleset } from '@retirement/engine';
 import {
   defaults,
   mergeInputs,
   applyFieldRules,
   grossSalaryFor,
   netMonthlyFor,
+  toScenario,
   type FormInputs,
 } from '../app/inputs';
 
@@ -291,7 +292,109 @@ describe('salary sacrifice comes out before the take-home figure', () => {
 
   it('is accounted for when a scenario file is imported', () => {
     const out = mergeInputs({ salary: 120_000, voluntarySuperContribution: 10_000 }, ruleset);
-    expect(out.netMonthlyPay).toBe(netMonthlyFor(120_000, ruleset, 10_000));
+    expect(out.netMonthlyPay).toBe(netMonthlyFor(120_000, ruleset, { salarySacrifice: 10_000 }));
     expect(out.netMonthlyPay).toBeLessThan(netMonthlyFor(120_000, ruleset));
+  });
+});
+
+describe('the three payslip lines', () => {
+  const sgOn = (gross: number) => Math.round(superGuaranteeOn(gross, ruleset) / 12);
+
+  it('ships an employer contribution that is exactly the legislated minimum', () => {
+    expect(defaults.employerSuperMonthly).toBe(sgOn(defaults.salary));
+    expect(defaults.partnerEmployerSuperMonthly).toBe(sgOn(defaults.partnerSalary));
+  });
+
+  it('moves the employer contribution when the pay changes, staying on the minimum', () => {
+    const out = rules(withField({ netMonthlyPay: 9_000 }), 'netMonthlyPay');
+    expect(out.employerSuperMonthly).toBe(sgOn(out.salary));
+    expect(out.employerSuperMonthly).toBeGreaterThan(defaults.employerSuperMonthly);
+  });
+
+  it('keeps an employer paying above the minimum on their rate when pay changes', () => {
+    // 15.4%, as much of the public service pays.
+    const generous = rules(
+      withField({ employerSuperMonthly: Math.round((120_000 * 0.154) / 12) }),
+      'employerSuperMonthly',
+    );
+    const raised = rules({ ...generous, netMonthlyPay: 9_000 }, 'netMonthlyPay');
+    expect((raised.employerSuperMonthly * 12) / raised.salary).toBeCloseTo(0.154, 3);
+    expect(raised.employerSuperMonthly).toBeGreaterThan(sgOn(raised.salary));
+  });
+
+  it('does not let employer super change take-home, since it is paid on top', () => {
+    const before = withField({});
+    const after = rules(
+      { ...before, employerSuperMonthly: Math.round((120_000 * 0.154) / 12) },
+      'employerSuperMonthly',
+    );
+    expect(after.netMonthlyPay).toBe(before.netMonthlyPay);
+    expect(after.salary).toBe(before.salary);
+  });
+
+  it('does let it change take-home when it squeezes a sacrifice against the cap', () => {
+    // The cap covers both, so a bigger employer contribution leaves less room to
+    // sacrifice into. The part that no longer fits is not lost - it stays in your pay and
+    // is taxed there, so take-home goes *up* while less reaches super.
+    const sacrificing = rules(withField({ personalSuperMonthly: 1_500 }), 'personalSuperMonthly');
+    const generous = rules(
+      { ...sacrificing, employerSuperMonthly: Math.round((120_000 * 0.154) / 12) },
+      'employerSuperMonthly',
+    );
+    expect(generous.netMonthlyPay).toBeGreaterThan(sacrificing.netMonthlyPay);
+    const refused = takeHome(120_000, ruleset, {
+      salarySacrifice: 18_000,
+      employerSuper: 120_000 * 0.154,
+    }).salarySacrificeRefused;
+    expect(refused).toBeGreaterThan(0);
+  });
+
+  it('leaves a figure below the minimum as typed, for the engine to lift', () => {
+    // Not clamped in the form: the field says what it is, and the note under it says the
+    // model will use the legislated minimum instead.
+    const out = rules(withField({ employerSuperMonthly: 100 }), 'employerSuperMonthly');
+    expect(out.employerSuperMonthly).toBe(100);
+  });
+
+  it('carries what you put in yourself through as the annual figure the engine wants', () => {
+    const out = rules(withField({ personalSuperMonthly: 800 }), 'personalSuperMonthly');
+    expect(out.voluntarySuperContribution).toBe(9_600);
+    expect(out.netMonthlyPay).toBeLessThan(defaults.netMonthlyPay);
+  });
+
+  it('fills the monthly figure in when a lever sets the annual one', () => {
+    const out = rules(
+      withField({ voluntarySuperContribution: 12_000 }),
+      'voluntarySuperContribution',
+    );
+    expect(out.personalSuperMonthly).toBe(1_000);
+  });
+
+  it('hands the employer contribution to the engine in dollars a year', () => {
+    const f = rules(withField({ employerSuperMonthly: 1_540 }), 'employerSuperMonthly');
+    const s = toScenario(f, { phiInflation: 0.05 });
+    expect(s.household.people[0].employerSuperContribution).toBe(1_540 * 12);
+  });
+
+  it('does all of it for a partner too, without touching yours', () => {
+    const out = rules(
+      withField({ hasPartner: true, partnerNetMonthlyPay: 7_000 }),
+      'partnerNetMonthlyPay',
+    );
+    expect(out.partnerEmployerSuperMonthly).toBe(sgOn(out.partnerSalary));
+    expect(out.employerSuperMonthly).toBe(defaults.employerSuperMonthly);
+    expect(out.netMonthlyPay).toBe(defaults.netMonthlyPay);
+  });
+
+  it('reconciles an imported file that knows only the annual sacrifice', () => {
+    const out = mergeInputs({ salary: 150_000, voluntarySuperContribution: 6_000 }, ruleset);
+    expect(out.personalSuperMonthly).toBe(500);
+    expect(out.employerSuperMonthly).toBe(sgOn(150_000));
+    expect(out.netMonthlyPay).toBe(netMonthlyFor(150_000, ruleset, { salarySacrifice: 6_000 }));
+  });
+
+  it('believes an imported employer contribution rather than recomputing it', () => {
+    const out = mergeInputs({ salary: 120_000, employerSuperMonthly: 1_540 }, ruleset);
+    expect(out.employerSuperMonthly).toBe(1_540);
   });
 });

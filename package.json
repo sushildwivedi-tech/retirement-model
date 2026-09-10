@@ -3,9 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "description": "Personal retirement modelling for an Australian household. Phase 1: deterministic core.",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "test": "npm run test --workspace=@retirement/engine",
+    "test": "npm run test --workspace=@retirement/engine && npm run test --workspace=web",
     "typecheck": "npm run typecheck --workspace=@retirement/engine",
     "dev": "npm run dev --workspace=web",
     "build": "npm run build --workspace=web"

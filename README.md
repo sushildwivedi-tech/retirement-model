@@ -146,9 +146,12 @@ immediately. `npm run build` produces a production build.
 ## Test it
 
 ```bash
-npm test        # engine unit + regression tests
+npm test        # engine tests, then the form-logic tests
 npm run typecheck
 ```
+
+244 engine tests and 12 covering the form's own logic — the age/birth-year relationship
+and the validation applied to a saved or imported scenario.
 
 ## Layout
 
@@ -292,15 +295,19 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    savings rate, so tax on salary is already inside that figure. Only the *incremental*
    tax caused by investment income is charged against the portfolio, at the marginal rate
    that income actually attracts.
-3. **Death is an input, not an inference.** Modelling a first death means choosing when.
+3. **Age and birth year are one fact.** They were separate inputs, so changing your age
+   left a birth year that contradicted it — and birth year is not decoration, it sets your
+   preservation age and therefore the year super becomes accessible. Editing either now
+   moves the other, on the convention `birthYear = startYear - age`.
+4. **Death is an input, not an inference.** Modelling a first death means choosing when.
    Rather than invent a date, it is an explicit scenario event (`kind: 'death'`), default
    off. Phase 4 replaces it with sampling from life tables.
-4. **Health and aged care are separate spending lines, not part of the baseline.** Real
+5. **Health and aged care are separate spending lines, not part of the baseline.** Real
    spending falls through retirement (100% / 85% / 75%) while health costs climb with age.
    Folding them together would hide both movements. They only apply from retirement — before
    then the household is modelled by its net savings rate, and recurring living costs are
    already inside that figure.
-5. **Gender is not guessed.** It selects which life table applies and is left unset by
+6. **Gender is not guessed.** It selects which life table applies and is left unset by
    default; the longevity panel simply does not appear until it is chosen. Life expectancy
    at 65 differs by 2.6 years between the two tables. The UI asks for gender; the engine
    field keeps the term the data uses, because the Australian Life Tables are published by

@@ -1,7 +1,7 @@
 'use client';
 
 import type { DrawdownStrategy } from '@retirement/engine';
-import { PROVISIONAL, type FormInputs } from './inputs';
+import { PROVISIONAL, syncAgeAndBirthYear, type FormInputs } from './inputs';
 
 type Role = 'you' | 'assumption';
 
@@ -60,6 +60,7 @@ const GROUPS: Group[] = [
   },
   {
     title: 'You',
+    help: 'Age and birth year move together. Birth year is what sets your preservation age — when super becomes accessible.',
     fields: [
       { key: 'currentAge', label: 'Age now', kind: 'age' },
       { key: 'birthYear', label: 'Birth year', kind: 'year' },
@@ -177,7 +178,11 @@ export function InputsPanel({
 }) {
   const set = (key: keyof FormInputs, raw: string, kind: Field['kind']) => {
     const n = Number(raw.replace(/[^0-9.\-]/g, ''));
-    setForm((f) => ({ ...f, [key]: kind === 'percent' ? n / 100 : n }));
+    setForm((f) =>
+      // Age and birth year are one fact expressed two ways, so editing either moves the
+      // other. Everything else is independent.
+      syncAgeAndBirthYear({ ...f, [key]: kind === 'percent' ? n / 100 : n }, key),
+    );
     onChange();
   };
   const clearResults = onChange;

@@ -199,6 +199,42 @@ export function clearSaved(): void {
  * type matches. An imported file from an older version, or a hand-edited one, cannot
  * inject unexpected shapes into the form this way.
  */
+/**
+ * Age and birth year describe one fact, so editing either must move the other.
+ *
+ * They were independent fields, which meant changing your age left a birth year that
+ * contradicted it - and birth year is not decoration: it sets the preservation age, the
+ * year super becomes accessible. An inconsistent pair produced a quietly wrong answer
+ * while looking like a stale input.
+ *
+ * The convention is `birthYear = startYear - age`, ignoring the birthday within the year.
+ */
+export function syncAgeAndBirthYear(
+  form: FormInputs,
+  key: keyof FormInputs,
+): FormInputs {
+  const sane = (n: number) => Number.isFinite(n) && n > 1900 && n < 2200;
+  const next = { ...form };
+  if (key === 'currentAge' && Number.isFinite(next.currentAge)) {
+    const y = next.startYear - next.currentAge;
+    if (sane(y)) next.birthYear = y;
+  } else if (key === 'birthYear' && sane(next.birthYear)) {
+    next.currentAge = next.startYear - next.birthYear;
+  } else if (key === 'partnerCurrentAge' && Number.isFinite(next.partnerCurrentAge)) {
+    const y = next.startYear - next.partnerCurrentAge;
+    if (sane(y)) next.partnerBirthYear = y;
+  } else if (key === 'partnerBirthYear' && sane(next.partnerBirthYear)) {
+    next.partnerCurrentAge = next.startYear - next.partnerBirthYear;
+  } else if (key === 'startYear') {
+    // Moving the plan's start year keeps ages fixed and shifts the birth years.
+    if (sane(next.startYear - next.currentAge)) next.birthYear = next.startYear - next.currentAge;
+    if (sane(next.startYear - next.partnerCurrentAge)) {
+      next.partnerBirthYear = next.startYear - next.partnerCurrentAge;
+    }
+  }
+  return next;
+}
+
 export function mergeInputs(incoming: Partial<FormInputs>): FormInputs {
   const out = { ...defaults };
   for (const key of Object.keys(defaults) as Array<keyof FormInputs>) {

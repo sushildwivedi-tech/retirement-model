@@ -88,6 +88,9 @@ export default function Planner({
     setUsingSaved(true);
   }, [form, usingSaved]);
   const [real, setReal] = useState(true);
+  // The home is off the chart by default: it is usually the biggest number in the
+  // household and the least spendable, and stacking it hid the run-out year entirely.
+  const [showHome, setShowHome] = useState(false);
   // Monte Carlo and the solvers take seconds, so they run on demand rather than on every
   // keystroke. Results are cleared whenever an input changes so a stale probability is
   // never shown against edited inputs.
@@ -849,12 +852,31 @@ export default function Planner({
                   >
                     {real ? "Today's dollars" : 'Future dollars'}
                   </button>
+                  {form.ownsHome && (
+                    <button
+                      onClick={() => setShowHome(!showHome)}
+                      aria-pressed={showHome}
+                      className={`rounded border px-2 py-1 ${
+                        showHome
+                          ? 'border-slate-400 bg-slate-900 text-white'
+                          : 'border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {showHome ? 'Hide home' : 'Show home'}
+                    </button>
+                  )}
                   <button onClick={download} className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50">
                     Export CSV
                   </button>
                 </div>
               </div>
-              <BalanceChart rows={rows} personId={PRIMARY_ID} />
+              <BalanceChart
+                rows={rows}
+                personId={PRIMARY_ID}
+                showHome={showHome}
+                retirementAge={form.retirementAge}
+                pensionAge={ruleset.agePension.eligibilityAge.value}
+              />
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4">

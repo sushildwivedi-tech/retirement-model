@@ -57,6 +57,16 @@ discount, Age Pension rates and thresholds, deeming, the Work Bonus, aged care f
 private health premium growth, the health curve and the life tables) are listed read-only
 in the sidebar with their source. Changing one means updating the ruleset, not the form.
 
+## The balance chart
+
+Cash, investments and super are stacked; the home is not. It is usually the largest number
+in the household and the least spendable, and stacking it flattened the money that actually
+funds retirement into a sliver — on the shipped example the y-axis ran to $2.2m and the
+run-out year, which is the whole point of the picture, was invisible. It now runs to about
+$800k. **Show home** draws the house as a dashed line on its own axis for anyone who wants
+it. Every chart ticks every five years rather than labelling all fifty ages, and the
+balance chart marks the year work stops and the year the Age Pension starts.
+
 ## What would move the needle
 
 A levers table re-runs the whole projection with one change at a time — retire later,

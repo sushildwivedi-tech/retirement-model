@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import type { FanBand } from '@retirement/engine';
 import { compact, money } from './format';
+import { fiveYearTicks } from './chart-ticks';
 
 /**
  * Monte Carlo fan chart.
@@ -40,6 +41,7 @@ export default function FanChart({ fan }: { fan: FanBand[] }) {
           <CartesianGrid stroke="#e2e8f0" vertical={false} />
           <XAxis
             dataKey="age"
+            ticks={fiveYearTicks(data.map((d) => d.age))}
             tick={{ fontSize: 12 }}
             label={{ value: 'Age', position: 'insideBottom', offset: -4, fontSize: 12 }}
           />

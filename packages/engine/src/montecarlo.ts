@@ -112,8 +112,8 @@ export function monteCarlo(
     household.people.every((p) => p.sex !== undefined);
   if (options.sampleLifespan && !canSampleLifespan) {
     notes.push(
-      'Lifespan sampling was requested but not applied: it needs life tables and a sex for ' +
-        'every person. The plan runs to the fixed planToAge instead.',
+      'Lifespan sampling was requested but not applied: it needs life tables and a gender ' +
+        'for every person. The plan runs to the fixed planToAge instead.',
     );
   }
 

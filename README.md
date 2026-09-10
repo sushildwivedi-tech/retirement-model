@@ -295,9 +295,11 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    Folding them together would hide both movements. They only apply from retirement — before
    then the household is modelled by its net savings rate, and recurring living costs are
    already inside that figure.
-5. **Sex is not guessed.** It drives which life table applies and is left unset by default;
-   the longevity panel simply does not appear until it is chosen. Life expectancy at 65
-   differs by 2.6 years between the two tables.
+5. **Gender is not guessed.** It selects which life table applies and is left unset by
+   default; the longevity panel simply does not appear until it is chosen. Life expectancy
+   at 65 differs by 2.6 years between the two tables. The UI asks for gender; the engine
+   field keeps the term the data uses, because the Australian Life Tables are published by
+   sex and choosing one is choosing which published table fits best.
 
 ## How couples are assessed
 

@@ -29,6 +29,36 @@ type Group = {
 
 const GROUPS: Group[] = [
   {
+    title: 'Do you have a partner?',
+    toggle: 'hasPartner',
+    help: 'A couple is assessed jointly for the Age Pension but taxed separately, and each person has their own super and preservation age.',
+    fields: [
+      { key: 'partnerCurrentAge', label: 'Age now', kind: 'age' },
+      { key: 'partnerBirthYear', label: 'Birth year', kind: 'year' },
+      { key: 'partnerRetirementAge', label: 'Stops work at', kind: 'age' },
+      { key: 'partnerSalary', label: 'Gross salary', kind: 'money' },
+      { key: 'partnerWageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
+    ],
+  },
+  {
+    title: 'Partner — super',
+    requires: 'hasPartner',
+    fields: [
+      { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
+      { key: 'partnerVoluntarySuperContribution', label: 'Extra contributions / yr', kind: 'money' },
+    ],
+  },
+  {
+    title: 'Partner — part-time work and death',
+    requires: 'hasPartner',
+    fields: [
+      { key: 'partnerPartTimeIncome', label: 'Part-time earns / yr', kind: 'money' },
+      { key: 'partnerPartTimeYears', label: 'For how many years', kind: 'age' },
+      { key: 'firstDeathAge', label: 'Dies at age (0 = never)', kind: 'age' },
+      { key: 'spendingStepDownOnFirstDeath', label: 'Spending after', kind: 'percent', role: 'assumption' },
+    ],
+  },
+  {
     title: 'You',
     fields: [
       { key: 'currentAge', label: 'Age now', kind: 'age' },
@@ -86,36 +116,6 @@ const GROUPS: Group[] = [
     fields: [
       { key: 'partTimeIncome', label: 'You earn / yr', kind: 'money' },
       { key: 'partTimeYears', label: 'For how many years', kind: 'age' },
-    ],
-  },
-  {
-    title: 'Do you have a partner?',
-    toggle: 'hasPartner',
-    help: 'A couple is assessed jointly for the Age Pension but taxed separately, and each person has their own super and preservation age.',
-    fields: [
-      { key: 'partnerCurrentAge', label: 'Age now', kind: 'age' },
-      { key: 'partnerBirthYear', label: 'Birth year', kind: 'year' },
-      { key: 'partnerRetirementAge', label: 'Stops work at', kind: 'age' },
-      { key: 'partnerSalary', label: 'Gross salary', kind: 'money' },
-      { key: 'partnerWageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
-    ],
-  },
-  {
-    title: 'Partner — super',
-    requires: 'hasPartner',
-    fields: [
-      { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
-      { key: 'partnerVoluntarySuperContribution', label: 'Extra contributions / yr', kind: 'money' },
-    ],
-  },
-  {
-    title: 'Partner — part-time work and death',
-    requires: 'hasPartner',
-    fields: [
-      { key: 'partnerPartTimeIncome', label: 'Part-time earns / yr', kind: 'money' },
-      { key: 'partnerPartTimeYears', label: 'For how many years', kind: 'age' },
-      { key: 'firstDeathAge', label: 'Dies at age (0 = never)', kind: 'age' },
-      { key: 'spendingStepDownOnFirstDeath', label: 'Spending after', kind: 'percent', role: 'assumption' },
     ],
   },
   {
@@ -326,7 +326,7 @@ export function InputsPanel({
           </label>
           <fieldset className="rounded-lg border border-slate-200 bg-white p-3">
             <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Sex (life tables)
+              Gender (life tables)
             </legend>
             <label className="flex items-center gap-2 py-1 text-sm">
               <span className="text-slate-700">You</span>

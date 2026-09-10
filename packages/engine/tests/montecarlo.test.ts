@@ -139,12 +139,12 @@ describe('Monte Carlo', () => {
   });
 
   it('says so when lifespan sampling is asked for but cannot be applied', () => {
-    // baseCase has no sex recorded, so there is no table to sample from.
+    // baseCase has no gender recorded, so there is no table to sample from.
     const mc = monteCarlo(baseCase, ruleset, datasets, { runs: 20, seed: 1, sampleLifespan: true });
-    expect(mc.notes.join(' ')).toMatch(/needs life tables and a sex/);
+    expect(mc.notes.join(' ')).toMatch(/needs life tables and a gender/);
   });
 
-  it('samples lifespan once a sex is recorded, which raises success', () => {
+  it('samples lifespan once a gender is recorded, which raises success', () => {
     const withSex: Scenario = {
       ...baseCase,
       household: {

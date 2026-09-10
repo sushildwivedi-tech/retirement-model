@@ -124,13 +124,13 @@ describe('one-off expenses', () => {
 });
 
 describe('longevity reporting', () => {
-  it('says nothing, and warns, when no sex is recorded', () => {
+  it('says nothing, and warns, when no gender is recorded', () => {
     const r = project(baseCase, ruleset, datasets);
     expect(r.longevity).toEqual([]);
-    expect(r.warnings.join(' ')).toMatch(/no sex recorded/);
+    expect(r.warnings.join(' ')).toMatch(/no gender recorded/);
   });
 
-  it('reports life expectancy and the 90th percentile once sex is set', () => {
+  it('reports life expectancy and the 90th percentile once gender is set', () => {
     const male: Scenario = {
       ...baseCase,
       household: {

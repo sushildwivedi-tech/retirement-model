@@ -941,8 +941,8 @@ export function project(
       const sex = p.sex;
       if (!sex) {
         warnings.push(
-          `${p.name} has no sex recorded, so no life table applies and no longevity view is ` +
-            'shown. Life expectancy at 65 differs by 2.6 years between the published tables.',
+          `${p.name} has no gender recorded, so no life table applies and no longevity view ` +
+            'is shown. Life expectancy at 65 differs by 2.6 years between the published tables.',
         );
         continue;
       }

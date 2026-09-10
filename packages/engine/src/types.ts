@@ -189,9 +189,13 @@ export interface Person {
   /** Additional salary-sacrifice / personal deductible contributions per year, today's dollars. */
   voluntarySuperContribution?: number;
   /**
-   * Drives which life table applies. Not supplied by default - the caller must choose,
-   * and the difference is material: life expectancy at 65 is 20.3 years for males and
-   * 22.9 for females on the 2020-22 tables.
+   * Which life table applies. Presented as "gender" in the UI; the field keeps the term
+   * the data uses, because the Australian Life Tables are published by sex and a person
+   * choosing a table is choosing which published table best fits them.
+   *
+   * Not supplied by default - the caller must choose, and the difference is material:
+   * life expectancy at 65 is 20.3 years for males and 22.9 for females on the 2020-22
+   * tables.
    */
   sex?: 'male' | 'female';
   /**

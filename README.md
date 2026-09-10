@@ -238,6 +238,20 @@ and a fan with zero width.
 holds N years of spending in cash and refills it in good years, the sequence-risk defence
 the build plan asks for. A glide path can shift super toward defensive options with age.
 
+## Three smaller corrections
+
+- **Voluntary contributions follow pay, not prices.** They index at the wage rate, like
+  the salary they are a slice of, and like the cap they are trimmed against. They used to
+  index at CPI, which slowly shrank a sacrifice as a share of income.
+- **Contents, cars and personal effects count.** Services Australia assesses them at what
+  they would fetch. They are added to the assets test and never deemed, because a car
+  earns nothing. $20,000 costs an assets-tested pensioner $1,560 a year.
+- **An unneeded compulsory drawdown can go back.** Minimum pension payments you did not
+  spend sit in cash, where they are deemed for the income test and their earnings taxed at
+  your marginal rate. Switching recontribution on puts what the minimum forced out back
+  into super, while the person is under 75 and within the non-concessional cap. Off by
+  default: it is a decision, not an assumption.
+
 ## What Phase 4 does not model
 
 The engine returns these in `notModelled` and the UI shows them in an open panel:

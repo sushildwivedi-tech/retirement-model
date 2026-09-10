@@ -158,6 +158,7 @@ export function project(
   const downsizerMinAge = ruleset.super.downsizerContribution.minimumAge.value;
   const downsizerCap = ruleset.super.downsizerContribution.capPerPerson.value;
   const baseTbc = ruleset.super.generalTransferBalanceCap.value;
+  const nonConcessionalCap = ruleset.super.nonConcessionalCap.value;
   const cgtDiscount = ruleset.capitalGains.discountRate.value;
   const pensionAge = ruleset.agePension.eligibilityAge.value;
 
@@ -342,7 +343,10 @@ export function project(
         ? Math.max(minimumSg, p.employerSuperContribution * wageIndex(p))
         : minimumSg;
       const capNow = Math.floor((baseConcessionalCap * wageIndex(p)) / 2500) * 2500;
-      const wanted = (p.voluntarySuperContribution ?? 0) * cpiIndex;
+      // Indexed with wages, not CPI: a voluntary contribution is a slice of pay, and
+      // someone sacrificing $10,000 of a $120,000 salary means to keep sacrificing that
+      // share of it. The cap it is trimmed against is wage-indexed for the same reason.
+      const wanted = (p.voluntarySuperContribution ?? 0) * wageIndex(p);
       const voluntary = Math.min(wanted, Math.max(0, capNow - sg));
       if (voluntary < wanted) {
         eventLog.push(
@@ -541,6 +545,9 @@ export function project(
     // An offset balance is still the household's money, so it is assessed like any other
     // financial asset - both deemed for the income test and counted for the assets test.
     const financialAssets = state.cash + state.offset + state.investments + assessedSuper;
+    // Contents, vehicles and personal effects count towards the assets test but are not
+    // financial assets, so they are never deemed to earn anything.
+    const personalAssets = (household.personalAssets ?? 0) * cpiIndex;
     const ap = agePension(
       {
         people: alive.map((p) => ({
@@ -552,7 +559,7 @@ export function project(
         partnered,
         homeOwner: household.homeOwner,
         financialAssets,
-        assessableAssets: financialAssets,
+        assessableAssets: financialAssets + personalAssets,
         otherAssessableIncome: 0,
       },
       ry,
@@ -572,6 +579,7 @@ export function project(
     const drawdown = { cash: 0, investments: 0, superAccumulation: 0, superPension: 0, total: 0 };
     let realisedCapitalGain = 0;
     let shortfall = 0;
+    let recontributed = 0;
     let taxPayable = 0;
 
     // Super benefits from a taxed source are tax-free from age 60, so pension payments and
@@ -757,6 +765,25 @@ export function project(
       }
       taxPayable = t2;
     }
+    // A compulsory minimum pension payment that the year did not need sits in cash, where
+    // it is deemed for the income test and its earnings are taxed at the marginal rate -
+    // both of which stop the moment it goes back into super. Only what the minimum forced
+    // out can go back, only while the person is under 75, and only within the
+    // non-concessional cap. Placed after the year is funded, so it recontributes what is
+    // genuinely left over, and before returns, so the money earns the super rate.
+    if (household.recontributeExcessDrawdown && minimumPensionPayment > 0 && shortfall <= 0) {
+      let room = Math.min(minimumPensionPayment, state.cash);
+      for (const p of alive) {
+        if (room <= 0) break;
+        if (ages[p.id] >= 75) continue;
+        const amount = Math.min(room, nonConcessionalCap * cpiIndex);
+        state.superAccumulation[p.id] += amount;
+        state.cash -= amount;
+        recontributed += amount;
+        room -= amount;
+      }
+    }
+
     drawdown.total =
       drawdown.cash + drawdown.investments + drawdown.superAccumulation + drawdown.superPension;
 
@@ -857,6 +884,7 @@ export function project(
       contributions: {
         superGuarantee: round(sgTotal),
         voluntary: round(voluntaryTotal),
+        recontributed: round(recontributed),
         downsizer: round(downsizerContribution),
         contributionsTax: round(contributionsTaxTotal),
         total: round(sgTotal + voluntaryTotal - contributionsTaxTotal + downsizerContribution),

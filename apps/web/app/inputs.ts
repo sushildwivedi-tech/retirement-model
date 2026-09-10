@@ -36,6 +36,8 @@ export interface FormInputs {
   cash: number;
   investments: number;
   primaryResidence: number;
+  /** Contents, vehicles and personal effects, at what they would fetch. */
+  personalAssets: number;
   annualSavings: number;
   retirementSpending: number;
   cpi: number;
@@ -66,6 +68,8 @@ export interface FormInputs {
   drawdownStrategy: DrawdownStrategy;
   cashBufferYears: number;
   glidePath: boolean;
+  /** Put an unneeded compulsory drawdown back into super rather than leaving it in cash. */
+  recontributeExcessDrawdown: boolean;
   hasMortgage: boolean;
   mortgageBalance: number;
   mortgageRate: number;
@@ -123,6 +127,7 @@ export const defaults: FormInputs = {
   cash: 0,
   investments: 150_000,
   primaryResidence: 900_000,
+  personalAssets: 20_000,
   annualSavings: 30_000,
   retirementSpending: 60_000,
   cpi: 0.025,
@@ -151,6 +156,7 @@ export const defaults: FormInputs = {
   drawdownStrategy: 'outsideSuperFirst',
   cashBufferYears: 3,
   glidePath: false,
+  recontributeExcessDrawdown: false,
   hasMortgage: false,
   mortgageBalance: 150_000,
   mortgageRate: 0.062,
@@ -609,7 +615,9 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       cash: f.cash,
       investments: f.investments,
       primaryResidence: f.primaryResidence,
+      personalAssets: f.personalAssets,
       annualSavings: f.annualSavings,
+      recontributeExcessDrawdown: f.recontributeExcessDrawdown,
       retirementSpending: f.retirementSpending,
       mortgage: f.hasMortgage
         ? {

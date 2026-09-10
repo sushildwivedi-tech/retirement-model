@@ -50,6 +50,8 @@ export interface Ruleset {
     guaranteeRate: SourcedValue<number>;
     maximumContributionBaseAnnual: SourcedValue<number>;
     concessionalCap: SourcedValue<number>;
+    nonConcessionalCap: SourcedValue<number>;
+    carryForwardTotalSuperBalanceThreshold: SourcedValue<number>;
     generalTransferBalanceCap: SourcedValue<number>;
     contributionsTaxConcessional: SourcedValue<number>;
     earningsTaxAccumulation: SourcedValue<number>;
@@ -282,6 +284,20 @@ export interface Household {
   primaryResidence: number;
   /** Total saved into `investments` each year while anyone is still working, today's dollars. */
   annualSavings: number;
+  /**
+   * Contents, vehicles and personal effects, at the value Services Australia would put on
+   * them - what they would fetch, not what they cost. Counted by the assets test and
+   * never deemed, because they earn nothing.
+   */
+  personalAssets?: number;
+  /**
+   * Put a compulsory minimum pension payment that was not needed for spending back into
+   * super, rather than leaving it in cash to be deemed and taxed.
+   *
+   * Off by default: it is a decision, not a default, and it only works while the person
+   * is under 75 and has non-concessional cap room left.
+   */
+  recontributeExcessDrawdown?: boolean;
   /** Household spending target from the first retirement onward, today's dollars. */
   retirementSpending: number;
   /** Home loan, if any. Repayments run whether or not anyone has retired. */
@@ -489,6 +505,8 @@ export interface YearRow {
   contributions: {
     superGuarantee: number;
     voluntary: number;
+    /** Compulsory drawdown that was not needed and went back into super. */
+    recontributed: number;
     downsizer: number;
     /** 15% contributions tax withheld in the fund on concessional contributions. */
     contributionsTax: number;

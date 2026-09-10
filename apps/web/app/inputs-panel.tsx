@@ -175,6 +175,13 @@ const GROUPS: Group[] = [
       { key: 'investments', label: 'Shares / ETFs outside super', kind: 'money' },
       { key: 'superBalance', label: 'Super', kind: 'money' },
       { key: 'primaryResidence', label: 'Home value', kind: 'money' },
+      {
+        key: 'personalAssets',
+        label: 'Contents, car and effects',
+        kind: 'money',
+        derived: () =>
+          'Counted by the assets test at what it would fetch, never deemed',
+      },
     ],
   },
   {
@@ -449,6 +456,26 @@ export function InputsPanel({
               }}
             />
             <span className="font-medium">Glide to defensive with age</span>
+          </label>
+          <label
+            className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm"
+            title="A compulsory minimum pension payment you did not need is deemed and taxed while it sits in cash. Putting it back stops both, while you are under 75 and have non-concessional cap room."
+          >
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.recontributeExcessDrawdown}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, recontributeExcessDrawdown: e.target.checked }));
+                clearResults();
+              }}
+            />
+            <span>
+              <span className="font-medium">Recontribute unneeded drawdowns</span>
+              <span className="block text-xs text-slate-600">
+                Minimum pension payments you did not spend go back into super, under 75
+              </span>
+            </span>
           </label>
           <fieldset className="rounded-lg border border-slate-200 bg-white p-3">
             <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">

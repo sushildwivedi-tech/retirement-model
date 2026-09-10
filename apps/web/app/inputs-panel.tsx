@@ -104,6 +104,16 @@ const GROUPS: Group[] = [
     fields: [
       { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
       {
+        key: 'partnerAfterTaxContribution',
+        label: 'After-tax into super / yr',
+        kind: 'money',
+      },
+      {
+        key: 'partnerUnusedConcessionalCapCarriedForward',
+        label: 'Unused cap carried forward',
+        kind: 'money',
+      },
+      {
         key: 'partnerInsurancePremiumInSuper',
         label: 'Insurance from super / yr',
         kind: 'money',
@@ -170,6 +180,24 @@ const GROUPS: Group[] = [
         kind: 'money',
         derived: (f, r) =>
           sacrificeNote(f.salary, f.voluntarySuperContribution, f.employerSuperMonthly, r),
+      },
+      {
+        key: 'afterTaxContribution',
+        label: 'After-tax into super / yr',
+        kind: 'money',
+        derived: (f) =>
+          f.afterTaxContribution > 0
+            ? 'From savings, already taxed — the fund takes nothing off it'
+            : '',
+      },
+      {
+        key: 'unusedConcessionalCapCarriedForward',
+        label: 'Unused cap carried forward',
+        kind: 'money',
+        derived: (f) =>
+          f.unusedConcessionalCapCarriedForward > 0
+            ? 'myGov reports this. Usable while your balance is under $500,000'
+            : '',
       },
       { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
       {

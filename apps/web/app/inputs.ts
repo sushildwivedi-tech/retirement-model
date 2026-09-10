@@ -33,6 +33,10 @@ export interface FormInputs {
   wageGrowth: number;
   superBalance: number;
   voluntarySuperContribution: number;
+  /** After-tax money into super each year, from savings. */
+  afterTaxContribution: number;
+  /** Unused concessional cap carried forward at the plan start, as myGov reports it. */
+  unusedConcessionalCapCarriedForward: number;
   cash: number;
   investments: number;
   /** Owns the home they live in. Off means renting, which changes both tests and costs. */
@@ -116,6 +120,8 @@ export interface FormInputs {
   partnerWageGrowth: number;
   partnerSuperBalance: number;
   partnerVoluntarySuperContribution: number;
+  partnerAfterTaxContribution: number;
+  partnerUnusedConcessionalCapCarriedForward: number;
   partnerSex: 'male' | 'female' | 'unspecified';
   /** 0 means no death is modelled. */
   firstDeathAge: number;
@@ -146,6 +152,8 @@ export const defaults: FormInputs = {
   wageGrowth: 0.035,
   superBalance: 250_000,
   voluntarySuperContribution: 0,
+  afterTaxContribution: 0,
+  unusedConcessionalCapCarriedForward: 0,
   cash: 0,
   investments: 150_000,
   ownsHome: true,
@@ -211,6 +219,8 @@ export const defaults: FormInputs = {
   partnerWageGrowth: 0.035,
   partnerSuperBalance: 150_000,
   partnerVoluntarySuperContribution: 0,
+  partnerAfterTaxContribution: 0,
+  partnerUnusedConcessionalCapCarriedForward: 0,
   partnerSex: 'unspecified',
   firstDeathAge: 0,
   spendingStepDownOnFirstDeath: 0.7,
@@ -647,6 +657,8 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       // is - so a figure that starts at the minimum stays at it, cap and all.
       employerSuperContribution: f.employerSuperMonthly * 12,
       voluntarySuperContribution: f.voluntarySuperContribution,
+      afterTaxContribution: f.afterTaxContribution,
+      unusedConcessionalCapCarriedForward: f.unusedConcessionalCapCarriedForward,
       insurancePremiumInSuper: f.insurancePremiumInSuper,
       sex: f.sex === 'unspecified' ? undefined : f.sex,
       partTimeIncome:
@@ -671,6 +683,8 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       superBalance: f.partnerSuperBalance,
       employerSuperContribution: f.partnerEmployerSuperMonthly * 12,
       voluntarySuperContribution: f.partnerVoluntarySuperContribution,
+      afterTaxContribution: f.partnerAfterTaxContribution,
+      unusedConcessionalCapCarriedForward: f.partnerUnusedConcessionalCapCarriedForward,
       insurancePremiumInSuper: f.partnerInsurancePremiumInSuper,
       sex: f.partnerSex === 'unspecified' ? undefined : f.partnerSex,
       partTimeIncome:

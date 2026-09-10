@@ -149,6 +149,18 @@ export interface Ruleset {
     }>;
     workBonus: SourcedValue<{ creditPerFortnight: number; maximumBalance: number }>;
   };
+  /**
+   * Commonwealth Seniors Health Card income limits. The card itself is a concession on
+   * medicines and services rather than a payment, so the engine reports eligibility
+   * rather than a dollar amount - but knowing you keep it is part of why people hold
+   * income just under the line.
+   */
+  seniorsHealthCard: SourcedValue<{
+    incomeLimitSingle: number;
+    incomeLimitCoupleCombined: number;
+    incomeLimitCoupleSeparatedByIllness: number;
+    addPerChild: number;
+  }>;
   agedCare: {
     basicDailyFeePerDay: SourcedValue<number>;
     hotellingContributionMaxPerDay: SourcedValue<number>;
@@ -218,6 +230,22 @@ export interface Person {
   employerSuperContribution?: number;
   /** Additional salary-sacrifice / personal deductible contributions per year, today's dollars. */
   voluntarySuperContribution?: number;
+  /**
+   * Unused concessional cap already carried forward at the plan start - the figure the
+   * ATO reports in myGov. Usable only while the total super balance at the previous
+   * 30 June is under the carry-forward threshold, and it expires five years after the
+   * year it arose.
+   */
+  unusedConcessionalCapCarriedForward?: number;
+  /**
+   * After-tax (non-concessional) contributions per year, in today's dollars - money that
+   * has already been taxed going in, so the fund takes nothing off it.
+   *
+   * Capped at the non-concessional cap, with up to three years' worth available at once
+   * under the bring-forward rule for someone under 75. Nil once the total super balance
+   * reaches the general transfer balance cap, which is the law's own condition.
+   */
+  afterTaxContribution?: number;
   /**
    * Life, TPD and income-protection premiums deducted from the super balance each year,
    * in today's dollars. Indexed at CPI and stopped at retirement, on the ordinary pattern
@@ -544,6 +572,8 @@ export interface YearRow {
   contributions: {
     superGuarantee: number;
     voluntary: number;
+    /** After-tax (non-concessional) contributions actually made. */
+    afterTax: number;
     /** Compulsory drawdown that was not needed and went back into super. */
     recontributed: number;
     downsizer: number;
@@ -583,6 +613,12 @@ export interface YearRow {
     /** Rent Assistance, which is part of the entitlement above. */
     rentAssistance: number;
   };
+  /**
+   * Eligible for the Commonwealth Seniors Health Card this year: of pension age, getting
+   * no pension, and under the income limit. Not a dollar figure - the card is a
+   * concession, and inventing a value for it would be a guess.
+   */
+  seniorsHealthCard: boolean;
   /** What the year cost in fees and insurance premiums - money that simply leaves. */
   costs: {
     /** Fees charged inside super, on the balance. */

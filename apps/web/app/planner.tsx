@@ -130,6 +130,12 @@ export default function Planner({
   // Accumulation-phase super belonging to someone under Age Pension age is exempt from
   // both tests. It is the largest lever a couple with an age gap has and is invisible
   // unless said out loud, so the first year it applies is surfaced.
+  // The card is worth knowing about: it goes to the self-funded retiree who gets no
+  // pension, which is exactly the household that assumes it qualifies for nothing.
+  const card = (() => {
+    const row = r.rows.find((x) => x.seniorsHealthCard);
+    return row ? { age: row.ages[PRIMARY_ID] } : null;
+  })();
   const exemption = (() => {
     const row = r.rows.find(
       (x) => x.agePensionDetail.exemptSuper > 0 && x.agePension > 0,
@@ -451,6 +457,16 @@ export default function Planner({
       source: 'ATO — assets held over 12 months',
     },
     { label: 'Age Pension age', value: String(ap.eligibilityAge.value), source: 'Services Australia' },
+    {
+      label: 'Rent Assistance (single, max)',
+      value: `${money(ap.rentAssistance.value.single.maxPaymentFortnight * ap.fortnightsPerYear.value)}/yr`,
+      source: 'Services Australia',
+    },
+    {
+      label: 'Seniors Health Card limit (single)',
+      value: money(ruleset.seniorsHealthCard.value.incomeLimitSingle),
+      source: 'Services Australia',
+    },
     {
       label: 'Age Pension (single, max)',
       value: `${money(ap.maxRateFortnight.value.single.total * fy)}/yr`,
@@ -782,6 +798,26 @@ export default function Planner({
                 note={real ? "today's dollars" : 'future dollars'}
               />
             </div>
+
+            {card && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h2 className="font-semibold text-emerald-900">
+                    Commonwealth Seniors Health Card from age {card.age}
+                  </h2>
+                  <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                    calculated
+                  </span>
+                </div>
+                <p className="mt-1 text-emerald-900/80">
+                  Of pension age, no pension payable, and income under{' '}
+                  {money(ruleset.seniorsHealthCard.value.incomeLimitSingle)} single (
+                  {money(ruleset.seniorsHealthCard.value.incomeLimitCoupleCombined)} for a couple).
+                  Cheaper medicines and concessions — no dollar value is put on it here, because
+                  that would be a guess.
+                </p>
+              </div>
+            )}
 
             {exemption && (
               <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm">

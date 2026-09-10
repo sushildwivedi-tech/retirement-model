@@ -1,6 +1,6 @@
 import { preservationAge, assertUsable } from './rules';
 import { personalIncomeTax } from './tax';
-import { agePension, minimumDrawdownPercent } from './agePension';
+import { agePension, deemedIncome, minimumDrawdownPercent } from './agePension';
 import { indexRuleset } from './indexation';
 import { advanceMortgage, annualRepaymentFor } from './mortgage';
 import { DEFAULT_SPENDING_PHASES, outOfPocketAtAge, spendingMultiplier } from './health';
@@ -35,6 +35,16 @@ interface State {
   /** Cumulative amount transferred into retirement phase, against the transfer balance cap. */
   transferBalanceUsed: Record<string, number>;
   workBonusBalance: Record<string, number>;
+  /**
+   * Unused concessional cap for the last five years, oldest first. The sixth year drops
+   * off the front, which is exactly how the carry-forward rule expires.
+   */
+  unusedCap: Record<string, number[]>;
+  /**
+   * Non-concessional cap room available now. Topped up by one cap a year and allowed to
+   * build to three, which is the bring-forward rule's arithmetic without its paperwork.
+   */
+  nonConcessionalRoom: Record<string, number>;
   dead: Set<string>;
   mortgageBalance: number;
   offset: number;
@@ -159,6 +169,7 @@ export function project(
   const downsizerCap = ruleset.super.downsizerContribution.capPerPerson.value;
   const baseTbc = ruleset.super.generalTransferBalanceCap.value;
   const nonConcessionalCap = ruleset.super.nonConcessionalCap.value;
+  const carryForwardThreshold = ruleset.super.carryForwardTotalSuperBalanceThreshold.value;
   const cgtDiscount = ruleset.capitalGains.discountRate.value;
   const feeRateSuper = assumptions.feeRateSuper ?? 0;
   const feeRateInvestments = assumptions.feeRateInvestments ?? 0;
@@ -220,6 +231,14 @@ export function project(
     superPension: Object.fromEntries(people.map((p) => [p.id, 0])),
     transferBalanceUsed: Object.fromEntries(people.map((p) => [p.id, 0])),
     workBonusBalance: Object.fromEntries(people.map((p) => [p.id, 0])),
+    // A plan can start with cap already accrued - the ATO reports the figure in myGov -
+    // so it is seeded as though it were one prior year's worth.
+    unusedCap: Object.fromEntries(
+      people.map((p) => [p.id, p.unusedConcessionalCapCarriedForward ? [p.unusedConcessionalCapCarriedForward] : []]),
+    ),
+    // Starts empty: the first year's top-up is what makes one cap available, so seeding
+    // it with a cap as well would hand out two in year one.
+    nonConcessionalRoom: Object.fromEntries(people.map((p) => [p.id, 0])),
     dead: new Set<string>(),
     mortgageBalance: household.mortgage?.balance ?? 0,
     offset: household.mortgage?.offsetBalance ?? 0,
@@ -346,17 +365,39 @@ export function project(
         ? Math.max(minimumSg, p.employerSuperContribution * wageIndex(p))
         : minimumSg;
       const capNow = Math.floor((baseConcessionalCap * wageIndex(p)) / 2500) * 2500;
+      // Unused cap from the last five years can be used on top of this year's, but only
+      // while the total super balance at the previous 30 June was under the threshold.
+      // The opening balance is that 30 June figure.
+      const openingSuper = state.superAccumulation[p.id] + state.superPension[p.id];
+      const carryForward =
+        openingSuper < carryForwardThreshold
+          ? state.unusedCap[p.id].reduce((a, b) => a + b, 0)
+          : 0;
+      const roomNow = capNow + carryForward;
       // Indexed with wages, not CPI: a voluntary contribution is a slice of pay, and
       // someone sacrificing $10,000 of a $120,000 salary means to keep sacrificing that
       // share of it. The cap it is trimmed against is wage-indexed for the same reason.
       const wanted = (p.voluntarySuperContribution ?? 0) * wageIndex(p);
-      const voluntary = Math.min(wanted, Math.max(0, capNow - sg));
+      const voluntary = Math.min(wanted, Math.max(0, roomNow - sg));
       if (voluntary < wanted) {
         eventLog.push(
           `${p.name}: voluntary super contribution trimmed to the concessional cap ` +
-            `(${Math.round(capNow).toLocaleString()}).`,
+            `(${Math.round(roomNow).toLocaleString()}` +
+            (carryForward > 0 ? `, including ${Math.round(carryForward).toLocaleString()} carried forward` : '') +
+            `).`,
         );
       }
+      // What this year did not use joins the ring, and the sixth year ago drops out of
+      // it. Carried-forward cap is consumed oldest first, which is what the ATO does.
+      let consumed = Math.max(0, sg + voluntary - capNow);
+      const ring = state.unusedCap[p.id];
+      for (let i = 0; i < ring.length && consumed > 0; i++) {
+        const take = Math.min(ring[i], consumed);
+        ring[i] -= take;
+        consumed -= take;
+      }
+      ring.push(Math.max(0, capNow - (sg + voluntary)));
+      while (ring.length > 5) ring.shift();
       const ctax = (sg + voluntary) * contributionsTaxRate;
       state.superAccumulation[p.id] += sg + voluntary - ctax;
       // Premiums come out of the balance while the salary lasts. Default cover is
@@ -370,6 +411,49 @@ export function project(
       sgTotal += sg;
       voluntaryTotal += voluntary;
       contributionsTaxTotal += ctax;
+    }
+
+    // --- After-tax (non-concessional) contributions ----------------------------
+    // Already-taxed money, so the fund takes nothing off it going in. Bring-forward is
+    // modelled by its arithmetic rather than its paperwork: a year's cap is added to the
+    // room each year and the room is allowed to build to three years' worth, so skipping
+    // two years and then contributing three caps behaves exactly as the rule intends.
+    let afterTaxTotal = 0;
+    for (const p of alive) {
+      state.nonConcessionalRoom[p.id] = Math.min(
+        state.nonConcessionalRoom[p.id] + nonConcessionalCap * cpiIndex,
+        nonConcessionalCap * cpiIndex * 3,
+      );
+      const wanted = (p.afterTaxContribution ?? 0) * cpiIndex;
+      if (wanted <= 0) continue;
+      const balance = state.superAccumulation[p.id] + state.superPension[p.id];
+      // The law's own condition: nil once the total super balance reaches the cap.
+      if (ages[p.id] >= 75 || balance >= ry.super.generalTransferBalanceCap.value) {
+        eventLog.push(
+          `${p.name}: after-tax contribution not made - ` +
+            (ages[p.id] >= 75 ? 'over 75.' : 'total super balance is at the transfer balance cap.'),
+        );
+        continue;
+      }
+      // It has to come from somewhere: cash first, then investments.
+      const affordable = Math.min(wanted, state.nonConcessionalRoom[p.id], state.cash + state.investments);
+      if (affordable <= 0) continue;
+      const fromCash = Math.min(affordable, state.cash);
+      state.cash -= fromCash;
+      const fromInvestments = affordable - fromCash;
+      if (fromInvestments > 0) {
+        const share = state.investments > 0 ? fromInvestments / state.investments : 0;
+        state.investmentsCostBase -= state.investmentsCostBase * share;
+        state.investments -= fromInvestments;
+      }
+      state.superAccumulation[p.id] += affordable;
+      state.nonConcessionalRoom[p.id] -= affordable;
+      afterTaxTotal += affordable;
+      if (affordable < wanted) {
+        eventLog.push(
+          `${p.name}: after-tax contribution trimmed to ${Math.round(affordable).toLocaleString()}.`,
+        );
+      }
     }
 
     // --- Pension-phase conversion, per person ----------------------------------
@@ -588,6 +672,25 @@ export function project(
       ry,
     );
     state.workBonusBalance = { ...state.workBonusBalance, ...ap.workBonusBalanceEnd };
+
+    // --- Commonwealth Seniors Health Card --------------------------------------
+    // For someone of pension age who gets no pension - the self-funded retiree the card
+    // exists for. Its worth is a concession on medicines and services rather than a
+    // payment, so eligibility is reported and no dollar value is invented. Assessed on
+    // taxable income plus deemed income from account-based pensions, and there is no
+    // assets test.
+    const cshcLimits = ry.seniorsHealthCard.value;
+    const cshcEligible =
+      alive.some((p) => ages[p.id] >= pensionAge) && ap.entitlement === 0;
+    const cshcIncome =
+      salaryTotal +
+      partTimeTotal +
+      taxableInvestmentIncome +
+      deemedIncome(alive.reduce((a, p) => a + state.superPension[p.id], 0), !partnered, ry);
+    const seniorsHealthCard =
+      cshcEligible &&
+      cshcIncome <
+        (partnered ? cshcLimits.incomeLimitCoupleCombined : cshcLimits.incomeLimitSingle);
 
     // --- 6/7. Fund the year, then tax it ---------------------------------------
     const spendableIncome = inRetirement ? salaryTotal + partTimeTotal + ap.entitlement : 0;
@@ -915,6 +1018,7 @@ export function project(
       contributions: {
         superGuarantee: round(sgTotal),
         voluntary: round(voluntaryTotal),
+        afterTax: round(afterTaxTotal),
         recontributed: round(recontributed),
         downsizer: round(downsizerContribution),
         contributionsTax: round(contributionsTaxTotal),
@@ -941,6 +1045,7 @@ export function project(
         exemptSuper: round(exemptSuper),
         rentAssistance: round(ap.rentAssistance),
       },
+      seniorsHealthCard,
       costs: {
         superFees: round(superFees),
         investmentFees: round(investmentFees),

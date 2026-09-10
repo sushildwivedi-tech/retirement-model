@@ -527,5 +527,17 @@
     "source": "NOT FETCHED. superannuation.asn.au returned HTTP 403 to automated requests on 2026-09-09. The ASFA modest/comfortable benchmarks are a convenience for picking a starting spend and nothing in the engine depends on them.",
     "url": "https://www.superannuation.asn.au/resources/retirement-standard/",
     "retrievedAt": null
+  },
+  "seniorsHealthCard": {
+    "value": {
+      "incomeLimitSingle": 101105.0,
+      "incomeLimitCoupleCombined": 161768.0,
+      "incomeLimitCoupleSeparatedByIllness": 202210.0,
+      "addPerChild": 639.6
+    },
+    "status": "sourced",
+    "source": "Services Australia - Income test for a Commonwealth Seniors Health Card. 'your annual gross taxable income must be less than: $101,105.00 a year if you're single, $161,768.00 a year for couples'. The test counts adjusted taxable income plus deemed income from account-based income streams, and there is no assets test. Reviewed on 20 September each year in line with CPI; page last updated 14 May 2026.",
+    "url": "https://www.servicesaustralia.gov.au/income-test-for-commonwealth-seniors-health-card",
+    "retrievedAt": "2026-09-10"
   }
 }

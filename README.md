@@ -52,7 +52,7 @@ ATO are not the same kind of thing and should not look alike:
 | Sky | Public data — sourced, and therefore **not editable** |
 | Indigo | Calculated by the model |
 
-Twenty sourced figures (super guarantee, caps, preservation age, Medicare levy, CGT
+Twenty-one sourced figures (super guarantee, caps, preservation age, Medicare levy, CGT
 discount, Age Pension rates and thresholds, deeming, the Work Bonus, aged care fees,
 private health premium growth, the health curve and the life tables) are listed read-only
 in the sidebar with their source. Changing one means updating the ruleset, not the form.
@@ -237,6 +237,31 @@ and a fan with zero width.
 `outsideSuperFirst` (default), `superFirst`, `proportional`, and `cashBuffer` — which
 holds N years of spending in cash and refills it in good years, the sequence-risk defence
 the build plan asks for. A glide path can shift super toward defensive options with age.
+
+## What the ruleset already knew
+
+Three sourced values sat in the ruleset unused, and two more were missing entirely.
+
+- **Carry-forward concessional cap.** Unused cap from the last five years can be used on
+  top of this year's, while the total super balance at the previous 30 June is under
+  $500,000. Modelled as a five-year ring: the sixth year drops off the front, which is
+  exactly how the rule expires. A plan can start with cap already banked — the figure myGov
+  reports — and it is spent oldest first, as the ATO does. This is what makes the
+  "downsize at 55 and contribute" lever actually work.
+- **After-tax contributions, with bring-forward.** Already-taxed money, so the fund takes
+  nothing off it going in. Bring-forward is modelled by its arithmetic rather than its
+  paperwork: a cap is added to the available room each year and the room builds to three
+  years' worth, so two quiet years followed by a large contribution behaves as the rule
+  intends. Nil at 75, and nil once the balance reaches the transfer balance cap — the
+  law's own condition. The money comes out of cash and investments, not from nowhere.
+- **The Commonwealth Seniors Health Card**, sourced on 10 September 2026: under $101,105
+  single or $161,768 combined, of pension age, and getting no pension. Reported as
+  eligibility and never as a dollar figure, because the card is a concession on medicines
+  and services and putting a number on it would be a guess. It goes to exactly the
+  household that assumes it qualifies for nothing.
+
+**Transition-to-Retirement pensions are deliberately still absent.** They interact with
+every cap above and are rarely the difference between retiring and not.
 
 ## Renters
 

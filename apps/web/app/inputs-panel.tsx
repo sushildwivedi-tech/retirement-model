@@ -33,11 +33,11 @@ const GROUPS: Group[] = [
     toggle: 'hasPartner',
     help: 'A couple is assessed jointly for the Age Pension but taxed separately, and each person has their own super and preservation age.',
     fields: [
-      { key: 'partnerCurrentAge', label: 'Age now', kind: 'age' },
-      { key: 'partnerBirthYear', label: 'Birth year', kind: 'year' },
-      { key: 'partnerRetirementAge', label: 'Stops work at', kind: 'age' },
-      { key: 'partnerSalary', label: 'Gross salary', kind: 'money' },
-      { key: 'partnerWageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
+      { key: 'partnerCurrentAge', label: "Partner's age now", kind: 'age' },
+      { key: 'partnerBirthYear', label: "Partner's birth year", kind: 'year' },
+      { key: 'partnerRetirementAge', label: 'Partner stops work at', kind: 'age' },
+      { key: 'partnerSalary', label: "Partner's gross salary", kind: 'money' },
+      { key: 'partnerWageGrowth', label: "Partner's wage growth", kind: 'percent', role: 'assumption' },
     ],
   },
   {
@@ -224,7 +224,11 @@ export function InputsPanel({
                 </div>
               )}
               {g.help && <p className="mb-2 text-xs text-slate-600">{g.help}</p>}
-              <div className={`space-y-2 ${g.toggle && !on ? 'hidden' : ''}`}>
+              {/* Not rendered at all when the answer is No. Hiding them with CSS left
+                  real inputs in the page: focusable, tabbable, and easy to fill in by
+                  mistake when they sit above the fields they look like. */}
+              {(!g.toggle || on) && (
+              <div className="space-y-2">
                 {g.fields.map((f) => {
                   const v = form[f.key] as number;
                   return (
@@ -258,6 +262,7 @@ export function InputsPanel({
                   );
                 })}
               </div>
+              )}
             </fieldset>
             );
           })}

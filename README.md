@@ -107,6 +107,13 @@ answer takes seconds and cannot sit behind a live number. It is the age that wor
 returns behave, not the age that works most of the time, and the page says so. The
 probabilistic answer is always later.
 
+**Compare** (`/compare`) puts two plans side by side. Both start as copies of your saved
+plan, so the first thing you see is two identical columns and every difference after that
+is one you made. It shows the outcomes for each, a diff of only the inputs that differ,
+and full editing for both sides. The simulations run on **the same seed for both**, so any
+gap between the two columns is the plan rather than the luck of the draw. Editing here
+does not touch your saved plan.
+
 **The detail** (`/detail`) has the workings: balances and spending over time, longevity,
 the year-by-year table, and everything the model does not cover.
 

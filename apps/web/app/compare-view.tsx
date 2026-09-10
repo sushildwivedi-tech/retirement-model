@@ -293,7 +293,9 @@ export default function CompareView({
   return (
     <main className="mx-auto max-w-[1400px] p-6 text-slate-900">
       <header className="mb-4">
-        <h1 className="text-2xl font-semibold">Compare two plans</h1>
+        <h1 className="text-2xl font-semibold">
+          Compare {['', 'one plan', 'two plans', 'three plans', 'four plans'][sides.length] ?? `${sides.length} plans`}
+        </h1>
         <p className="text-sm text-slate-600">
           Both start from your saved plan. Change either side and the outcomes update.
         </p>

@@ -532,7 +532,7 @@ export default function Planner({
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           {/* A visible statement of WHOSE numbers these are. Without it, a browser copy
               kept from an earlier visit looks indistinguishable from the example, and
               there is no obvious way back. */}
@@ -626,7 +626,9 @@ export default function Planner({
 
         </aside>
 
-        <section className="space-y-6">
+        {/* min-w-0: without it the grid column takes its width from the widest child -
+            the fourteen-column year table - and the whole page scrolls sideways. */}
+        <section className="min-w-0 space-y-6">
           <nav className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-sm">
             <Link
               href="/"

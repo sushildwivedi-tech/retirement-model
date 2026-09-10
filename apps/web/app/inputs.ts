@@ -200,19 +200,21 @@ export function clearSaved(): void {
  * inject unexpected shapes into the form this way.
  */
 /**
- * Age and birth year describe one fact, so editing either must move the other.
+ * Keep fields that describe the same fact from contradicting each other.
  *
- * They were independent fields, which meant changing your age left a birth year that
- * contradicted it - and birth year is not decoration: it sets the preservation age, the
- * year super becomes accessible. An inconsistent pair produced a quietly wrong answer
- * while looking like a stale input.
+ * Two rules, both of which were previously unenforced and produced states that looked
+ * like stale inputs but were really invalid scenarios:
  *
- * The convention is `birthYear = startYear - age`, ignoring the birthday within the year.
+ * 1. Age and birth year are one fact. `birthYear = startYear - age`, ignoring the
+ *    birthday within the year. Birth year is not decoration - it sets the preservation
+ *    age, the year super becomes accessible.
+ * 2. You cannot retire before today. If age passes the planned retirement age, that age
+ *    comes with it; if a retirement age is typed below the current age, it is lifted.
+ *
+ * Only fields related to the one being edited are touched, so nothing moves under the
+ * user unexpectedly.
  */
-export function syncAgeAndBirthYear(
-  form: FormInputs,
-  key: keyof FormInputs,
-): FormInputs {
+export function applyFieldRules(form: FormInputs, key: keyof FormInputs): FormInputs {
   const sane = (n: number) => Number.isFinite(n) && n > 1900 && n < 2200;
   const next = { ...form };
   if (key === 'currentAge' && Number.isFinite(next.currentAge)) {
@@ -231,6 +233,27 @@ export function syncAgeAndBirthYear(
     if (sane(next.startYear - next.partnerCurrentAge)) {
       next.partnerBirthYear = next.startYear - next.partnerCurrentAge;
     }
+  }
+
+  // Nobody can retire in the past. Whichever side moved, the retirement age ends up at
+  // or after the current age - "retire now" being the earliest honest answer.
+  if (
+    Number.isFinite(next.currentAge) &&
+    Number.isFinite(next.retirementAge) &&
+    next.retirementAge < next.currentAge &&
+    ['currentAge', 'birthYear', 'retirementAge', 'startYear'].includes(key as string)
+  ) {
+    next.retirementAge = next.currentAge;
+  }
+  if (
+    Number.isFinite(next.partnerCurrentAge) &&
+    Number.isFinite(next.partnerRetirementAge) &&
+    next.partnerRetirementAge < next.partnerCurrentAge &&
+    ['partnerCurrentAge', 'partnerBirthYear', 'partnerRetirementAge', 'startYear'].includes(
+      key as string,
+    )
+  ) {
+    next.partnerRetirementAge = next.partnerCurrentAge;
   }
   return next;
 }

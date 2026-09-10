@@ -295,10 +295,12 @@ Both are exposed as `Assumptions` flags, and both are judgement calls rather tha
    savings rate, so tax on salary is already inside that figure. Only the *incremental*
    tax caused by investment income is charged against the portfolio, at the marginal rate
    that income actually attracts.
-3. **Age and birth year are one fact.** They were separate inputs, so changing your age
-   left a birth year that contradicted it — and birth year is not decoration, it sets your
-   preservation age and therefore the year super becomes accessible. Editing either now
-   moves the other, on the convention `birthYear = startYear - age`.
+3. **Coupled inputs are kept consistent.** Age and birth year are one fact — editing
+   either moves the other, on the convention `birthYear = startYear - age`. Birth year is
+   not decoration: it sets your preservation age and therefore the year super becomes
+   accessible. And nobody can retire in the past, so if your age passes the planned
+   retirement age it comes with you. Both were previously unenforced and produced states
+   that looked like stale fields but were really impossible scenarios.
 4. **Death is an input, not an inference.** Modelling a first death means choosing when.
    Rather than invent a date, it is an explicit scenario event (`kind: 'death'`), default
    off. Phase 4 replaces it with sampling from life tables.

@@ -1,11 +1,17 @@
-# Monorepo build: the workspace root is the base, so the engine package and the
-# rules/ and data/ folders the app reads at build time are all present.
+# The site is a folder of files.
+#
+# Every route is prerendered and every calculation happens in the visitor's browser, so
+# `output: 'export'` in next.config.ts emits plain HTML, JS and JSON into apps/web/out —
+# no server handler, no Next.js runtime on the host. That makes the site portable to any
+# static host, and lets a deploy skip the build step entirely: `netlify deploy --dir` on
+# an already-built folder uploads files rather than running a build.
+#
+# The build below is still here for a build-on-Netlify deploy. It runs from the workspace
+# root on purpose, so the engine package and the rules/ and data/ folders the app reads at
+# build time are all present. Base directory must stay blank for that reason.
 [build]
   command = "npm run build"
-  publish = "apps/web/.next"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+  publish = "apps/web/out"
 
 [build.environment]
   NODE_VERSION = "22"

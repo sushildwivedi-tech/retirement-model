@@ -484,15 +484,21 @@ General information only. Not personal financial advice.
 
 ## Deploying
 
-Pushing to `main` deploys. The repository is connected to Netlify, which builds it from a
-clean clone — `npm ci && npm run build` — so anything the build needs has to be committed,
-not merely present on the machine that pushed. Pull requests get their own preview URL.
+**The site is a folder of files.** `output: 'export'` emits plain HTML, JS and JSON into
+`apps/web/out` — no server handler, no Next.js runtime on the host, 2.1 MB in total. Every
+route is prerendered and every calculation happens in the visitor's browser, so there was
+never anything for a server to do at request time.
 
-`netlify.toml` builds from the workspace root so the engine package and the `rules/` and
-`data/` folders are all present — the app reads those at build time. Base directory is
-deliberately blank: pointing it at `apps/web` breaks the workspace resolution and hides
-the two data folders. The page is statically prerendered, so the deployed site is static
-and every calculation happens in the visitor's browser.
+That makes deploying a file upload rather than a build:
 
-A manual deploy is still possible for a one-off, but the next push to `main` replaces it,
-so treat the branch as the source of truth rather than whatever was last uploaded.
+```
+npm run build
+npx netlify-cli deploy --prod --dir=apps/web/out --site=<site-id>
+```
+
+It also makes the site portable — any static host will serve it — so nothing here is tied
+to one provider.
+
+`netlify.toml` keeps a build command for a build-on-Netlify deploy. It runs from the
+workspace root on purpose, so the engine package and the `rules/` and `data/` folders are
+present; the base directory must stay blank for the same reason.

@@ -4,8 +4,24 @@
     {
       "name": "retirement-model",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "static-export",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "apps/web/out",
+        "-l",
+        "4000",
+        "--no-clipboard"
+      ],
+      "port": 4000
     }
   ]
 }

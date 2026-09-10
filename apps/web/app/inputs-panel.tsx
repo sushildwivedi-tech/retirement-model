@@ -609,7 +609,7 @@ export function InputsPanel({
           <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <span className="font-medium">Drawdown</span>
             <select
-              className="ml-auto rounded border border-slate-300 px-2 py-1"
+              className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
               value={form.drawdownStrategy}
               onChange={(e) => {
                 setForm((f) => ({ ...f, drawdownStrategy: e.target.value as DrawdownStrategy }));
@@ -660,7 +660,7 @@ export function InputsPanel({
             <label className="flex items-center gap-2 py-1 text-sm">
               <span className="text-slate-700">You</span>
               <select
-                className="ml-auto rounded border border-slate-300 px-2 py-1"
+                className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
                 value={form.sex}
                 onChange={(e) => {
                   setForm((f) => ({ ...f, sex: e.target.value as FormInputs['sex'] }));
@@ -676,7 +676,7 @@ export function InputsPanel({
               <label className="flex items-center gap-2 py-1 text-sm">
                 <span className="text-slate-700">Partner</span>
                 <select
-                  className="ml-auto rounded border border-slate-300 px-2 py-1"
+                  className="ml-auto min-w-0 max-w-[60%] rounded border border-slate-300 px-2 py-1"
                   value={form.partnerSex}
                   onChange={(e) => {
                     setForm((f) => ({

@@ -895,9 +895,10 @@ export default function Planner({
             )}
 
             <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-semibold">Balances over time</h2>
-                <div className="flex items-center gap-2 text-sm">
+                {/* wraps: three buttons plus a heading do not fit a narrow phone in one row */}
+                <div className="flex flex-wrap items-center gap-2 text-sm">
                   <button
                     onClick={() => setReal(!real)}
                     className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50"

@@ -40,6 +40,18 @@ of any size moves it either way — so a years column would read "no change" and
 saving. On the shipped example, moving $150,000 into the offset saves $22,675 of interest
 and clears the loan five years sooner.
 
+## Fourteen fields, then the rest
+
+The form had grown to fifty-one inputs across sixteen sections, all of it on screen at
+once. Six sections are now always visible — the partner question, your ages, the payslip
+figures, what you have, whether you own your home, and what you plan to spend — which is
+**fourteen fields**. Everything else sits behind one *Refine the model* disclosure,
+remembered for the visit like the form itself.
+
+Anything switched on inside a closed section is named on the disclosure row
+("mortgage $150,000 · aged care stress test"), because a choice you cannot see is a choice
+you did not make.
+
 ## Where each number comes from
 
 The UI colour-codes provenance, because a figure you typed and a figure taken from the

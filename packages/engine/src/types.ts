@@ -202,6 +202,12 @@ export interface Person {
   /** Additional salary-sacrifice / personal deductible contributions per year, today's dollars. */
   voluntarySuperContribution?: number;
   /**
+   * Life, TPD and income-protection premiums deducted from the super balance each year,
+   * in today's dollars. Indexed at CPI and stopped at retirement, on the ordinary pattern
+   * that default cover is cancelled or lapses once the salary does.
+   */
+  insurancePremiumInSuper?: number;
+  /**
    * Which life table applies. Presented as "gender" in the UI; the field keeps the term
    * the data uses, because the Australian Life Tables are published by sex and a person
    * choosing a table is choosing which published table best fits them.
@@ -363,6 +369,16 @@ export interface Assumptions {
    * credits are NOT modelled, so this overstates tax on Australian shares.
    */
   investmentIncomeYield: number;
+  /**
+   * Total annual cost of running the super account, as a fraction of the balance -
+   * administration plus investment management, the "indirect cost ratio" a fund's PDS
+   * quotes. ASSUMED, not sourced: it varies by fund and by option, and the only honest
+   * figure is the one on your own statement. Deducted from the return before earnings
+   * tax, which is where a fund charges it.
+   */
+  feeRateSuper?: number;
+  /** The same for money outside super: an ETF's management fee, plus any platform cost. */
+  feeRateInvestments?: number;
   /**
    * Which legislated dollar thresholds move with CPI over the life of the plan.
    *
@@ -541,6 +557,16 @@ export interface YearRow {
      * has, and it is invisible unless the model says so.
      */
     exemptSuper: number;
+  };
+  /** What the year cost in fees and insurance premiums - money that simply leaves. */
+  costs: {
+    /** Fees charged inside super, on the balance. */
+    superFees: number;
+    /** Fees on money outside super. */
+    investmentFees: number;
+    /** Insurance premiums deducted from super. */
+    insurance: number;
+    total: number;
   };
   tax: {
     personal: number;

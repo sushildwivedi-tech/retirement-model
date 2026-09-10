@@ -57,6 +57,13 @@ export interface FormInputs {
   returnInvestments: number;
   returnSuper: number;
   returnHome: number;
+  /** All-in cost of the super account, as a fraction of the balance. An assumption. */
+  feeRateSuper: number;
+  /** The same for money outside super. An assumption. */
+  feeRateInvestments: number;
+  /** Life/TPD/income-protection premiums deducted from super each year, while working. */
+  insurancePremiumInSuper: number;
+  partnerInsurancePremiumInSuper: number;
   includeHealthCosts: boolean;
   outOfPocketMultiplier: number;
   /** Health insurance premium per month, as it is billed; the annual figure is calculated. */
@@ -150,6 +157,13 @@ export const defaults: FormInputs = {
   returnInvestments: 0.065,
   returnSuper: 0.075,
   returnHome: 0.04,
+  // ASSUMED, not sourced: fees vary by fund and by option, and the only honest figure is
+  // the one on your own statement. These are middle-of-the-road for a large fund and a
+  // broad ETF respectively.
+  feeRateSuper: 0.006,
+  feeRateInvestments: 0.002,
+  insurancePremiumInSuper: 0,
+  partnerInsurancePremiumInSuper: 0,
   includeHealthCosts: true,
   outOfPocketMultiplier: 1,
   healthInsuranceMonthly: 0,
@@ -627,6 +641,7 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       // is - so a figure that starts at the minimum stays at it, cap and all.
       employerSuperContribution: f.employerSuperMonthly * 12,
       voluntarySuperContribution: f.voluntarySuperContribution,
+      insurancePremiumInSuper: f.insurancePremiumInSuper,
       sex: f.sex === 'unspecified' ? undefined : f.sex,
       partTimeIncome:
         f.partTimeIncome > 0 && f.partTimeYears > 0
@@ -650,6 +665,7 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
       superBalance: f.partnerSuperBalance,
       employerSuperContribution: f.partnerEmployerSuperMonthly * 12,
       voluntarySuperContribution: f.partnerVoluntarySuperContribution,
+      insurancePremiumInSuper: f.partnerInsurancePremiumInSuper,
       sex: f.partnerSex === 'unspecified' ? undefined : f.partnerSex,
       partTimeIncome:
         f.partnerPartTimeIncome > 0 && f.partnerPartTimeYears > 0
@@ -703,6 +719,8 @@ export function toScenario(f: FormInputs, sourced: SourcedRates): Scenario {
     assumptions: {
       cpi: f.cpi,
       investmentIncomeYield: f.investmentIncomeYield,
+      feeRateSuper: f.feeRateSuper,
+      feeRateInvestments: f.feeRateInvestments,
       convertSuperToPensionPhase: true,
       indexation: {
         agePension: f.indexAgePension,

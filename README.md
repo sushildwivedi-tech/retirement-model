@@ -238,6 +238,20 @@ and a fan with zero width.
 holds N years of spending in cash and refills it in good years, the sequence-risk defence
 the build plan asks for. A glide path can shift super toward defensive options with age.
 
+## Fees
+
+Nothing was charged for running the money until now, which flattered every projection.
+Super and outside-super fees are both deducted from the return before earnings tax —
+where a fund actually charges them, so the tax falls with the return. Insurance premiums
+deducted from super are a separate line and stop at retirement, as default cover usually
+does.
+
+The defaults are **assumptions, not sourced**: 0.6% on super and 0.2% outside it are
+middle-of-the-road for a large fund and a broad ETF, but the only honest figure is the one
+on your own statement, so both are amber and editable. The size of this matters — 0.7% on
+a balance compounding at 7.5% for forty years leaves about 77% of what a fee-free balance
+would have reached, which is more than most of the levers are worth.
+
 ## Three smaller corrections
 
 - **Voluntary contributions follow pay, not prices.** They index at the wage rate, like

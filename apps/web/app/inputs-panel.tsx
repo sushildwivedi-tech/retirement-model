@@ -102,6 +102,11 @@ const GROUPS: Group[] = [
     fields: [
       { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
       {
+        key: 'partnerInsurancePremiumInSuper',
+        label: 'Insurance from super / yr',
+        kind: 'money',
+      },
+      {
         key: 'partnerEmployerSuperMonthly',
         label: 'From their employer / month',
         kind: 'money',
@@ -163,6 +168,14 @@ const GROUPS: Group[] = [
         kind: 'money',
         derived: (f, r) =>
           sacrificeNote(f.salary, f.voluntarySuperContribution, f.employerSuperMonthly, r),
+      },
+      { key: 'wageGrowth', label: 'Wage growth', kind: 'percent', role: 'assumption' },
+      {
+        key: 'insurancePremiumInSuper',
+        label: 'Insurance paid from super / yr',
+        kind: 'money',
+        derived: (f) =>
+          f.insurancePremiumInSuper > 0 ? 'Stops when you stop work, as default cover does' : '',
       },
       {
         key: 'livingCostsMonthly',
@@ -271,6 +284,13 @@ const GROUPS: Group[] = [
     title: 'Assumptions',
     fields: [
       { key: 'cpi', label: 'Inflation (CPI)', kind: 'percent', role: 'assumption' },
+      { key: 'feeRateSuper', label: 'Fees — super', kind: 'percent', role: 'assumption' },
+      {
+        key: 'feeRateInvestments',
+        label: 'Fees — outside super',
+        kind: 'percent',
+        role: 'assumption',
+      },
       { key: 'investmentIncomeYield', label: 'Of which paid as income', kind: 'percent', role: 'assumption' },
       { key: 'returnCash', label: 'Return — cash', kind: 'percent', role: 'assumption' },
       { key: 'returnInvestments', label: 'Return — investments', kind: 'percent', role: 'assumption' },
@@ -279,6 +299,9 @@ const GROUPS: Group[] = [
     ],
   },
 ];
+
+/** Every field key the form renders, so a test can check none has gone missing. */
+export const FIELD_KEYS: Array<keyof FormInputs> = GROUPS.flatMap((g) => g.fields.map((f) => f.key));
 
 /**
  * Every input the model takes, plus the modelling settings.

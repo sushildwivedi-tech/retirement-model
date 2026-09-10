@@ -160,6 +160,8 @@ export function project(
   const baseTbc = ruleset.super.generalTransferBalanceCap.value;
   const nonConcessionalCap = ruleset.super.nonConcessionalCap.value;
   const cgtDiscount = ruleset.capitalGains.discountRate.value;
+  const feeRateSuper = assumptions.feeRateSuper ?? 0;
+  const feeRateInvestments = assumptions.feeRateInvestments ?? 0;
   const pensionAge = ruleset.agePension.eligibilityAge.value;
 
   const preservation: Record<string, number> = {};
@@ -333,6 +335,7 @@ export function project(
     let sgTotal = 0;
     let voluntaryTotal = 0;
     let contributionsTaxTotal = 0;
+    let insuranceTotal = 0;
     for (const p of alive) {
       if (salaryOf[p.id] <= 0) continue;
       const contributionBase = baseContributionBase * wageIndex(p);
@@ -356,6 +359,14 @@ export function project(
       }
       const ctax = (sg + voluntary) * contributionsTaxRate;
       state.superAccumulation[p.id] += sg + voluntary - ctax;
+      // Premiums come out of the balance while the salary lasts. Default cover is
+      // usually cancelled or lapses at retirement, so this stops with the salary.
+      const premium = (p.insurancePremiumInSuper ?? 0) * cpiIndex;
+      if (premium > 0) {
+        const charged = Math.min(premium, state.superAccumulation[p.id]);
+        state.superAccumulation[p.id] -= charged;
+        insuranceTotal += charged;
+      }
       sgTotal += sg;
       voluntaryTotal += voluntary;
       contributionsTaxTotal += ctax;
@@ -798,12 +809,20 @@ export function project(
     const personalTaxCharged = finalTax.charged;
 
     // --- 8. Returns on closing balances ---------------------------------------
-    state.investments *= 1 + investmentGrowthRate;
+    // Fees come off the return before earnings tax, which is where a fund charges them:
+    // the tax is levied on what the fund actually earned after paying itself. Over a
+    // working life this is worth more than most of the levers - 0.6% on a balance
+    // compounding for forty years is about a quarter of the final figure.
+    const investmentFees = state.investments * feeRateInvestments;
+    state.investments *= 1 + investmentGrowthRate - feeRateInvestments;
     state.investmentsCostBase = Math.min(state.investmentsCostBase, state.investments);
     let superEarningsTax = 0;
+    let superFees = 0;
+    const netSuperReturn = ret.superAccumulation - feeRateSuper;
     for (const p of alive) {
-      const accumEarnings = state.superAccumulation[p.id] * ret.superAccumulation;
-      const pensionEarnings = state.superPension[p.id] * ret.superAccumulation;
+      superFees += (state.superAccumulation[p.id] + state.superPension[p.id]) * feeRateSuper;
+      const accumEarnings = state.superAccumulation[p.id] * netSuperReturn;
+      const pensionEarnings = state.superPension[p.id] * netSuperReturn;
       superEarningsTax += accumEarnings * accumEarningsTax + pensionEarnings * pensionEarningsTax;
       state.superAccumulation[p.id] += accumEarnings * (1 - accumEarningsTax);
       state.superPension[p.id] += pensionEarnings * (1 - pensionEarningsTax);
@@ -915,6 +934,12 @@ export function project(
         assessedIncome: round(ap.assessedIncome),
         bindingTest: ap.bindingTest,
         exemptSuper: round(exemptSuper),
+      },
+      costs: {
+        superFees: round(superFees),
+        investmentFees: round(investmentFees),
+        insurance: round(insuranceTotal),
+        total: round(superFees + investmentFees + insuranceTotal),
       },
       tax: {
         // What is actually charged against the portfolio. Before retirement this is the

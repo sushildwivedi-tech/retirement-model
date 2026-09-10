@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { netFromGross, superGuaranteeOn, takeHome, type Ruleset } from '@retirement/engine';
+import { FIELD_KEYS } from '../app/inputs-panel';
 import {
   defaults,
   mergeInputs,
@@ -473,5 +474,35 @@ describe('a lever change is applied the way it was measured', () => {
     expect(after.netMonthlyPay).toBeLessThan(defaults.netMonthlyPay);
     expect(after.annualSavings).toBeLessThan(defaults.annualSavings);
     expect(after.salary).toBe(defaults.salary);
+  });
+});
+
+describe('every field the form declares actually exists', () => {
+  // Wage growth went missing for one commit because an edit replaced the two lines it
+  // shared with the old savings field. A list is cheaper than noticing by eye.
+  it('offers the fields a plan cannot be built without', () => {
+    const required: Array<keyof FormInputs> = [
+      'currentAge',
+      'retirementAge',
+      'netMonthlyPay',
+      'employerSuperMonthly',
+      'personalSuperMonthly',
+      'livingCostsMonthly',
+      'annualSavings',
+      'wageGrowth',
+      'cash',
+      'investments',
+      'superBalance',
+      'primaryResidence',
+      'retirementSpending',
+      'cpi',
+      'returnSuper',
+      'feeRateSuper',
+    ];
+    for (const key of required) expect(FIELD_KEYS).toContain(key);
+  });
+
+  it('names only real fields', () => {
+    for (const key of FIELD_KEYS) expect(Object.keys(defaults)).toContain(key);
   });
 });

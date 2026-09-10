@@ -373,7 +373,15 @@ General information only. Not personal financial advice.
 
 ## Deploying
 
+Pushing to `main` deploys. The repository is connected to Netlify, which builds it from a
+clean clone — `npm ci && npm run build` — so anything the build needs has to be committed,
+not merely present on the machine that pushed. Pull requests get their own preview URL.
+
 `netlify.toml` builds from the workspace root so the engine package and the `rules/` and
-`data/` folders are all present — the app reads those at build time. The page is
-statically prerendered, so the deployed site is static and every calculation happens in
-the visitor's browser.
+`data/` folders are all present — the app reads those at build time. Base directory is
+deliberately blank: pointing it at `apps/web` breaks the workspace resolution and hides
+the two data folders. The page is statically prerendered, so the deployed site is static
+and every calculation happens in the visitor's browser.
+
+A manual deploy is still possible for a one-off, but the next push to `main` replaces it,
+so treat the branch as the source of truth rather than whatever was last uploaded.

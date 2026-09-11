@@ -50,8 +50,11 @@ const SUMMARY_GRID: Record<number, string> = {
   4: 'md:grid-cols-2 xl:grid-cols-4',
 };
 
-/** Human labels for the fields worth diffing. Anything absent is not shown. */
-const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
+/**
+ * Human labels for the fields. Every input is diffed whether or not it is named here -
+ * see `differences` - and this only supplies a better name than the key.
+ */
+export const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
   currentAge: 'Age now',
   retirementAge: 'Stop work at',
   planToAge: 'Plan to age',
@@ -88,6 +91,18 @@ const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
   partnerEmployerSuperMonthly: "Partner's employer super / month",
   partnerPersonalSuperMonthly: "Partner puts in / month",
   partnerSuperBalance: 'Partner super',
+  partnerWageGrowth: "Partner's wage growth",
+  partnerInsurancePremiumInSuper: "Partner's insurance from super",
+  partnerAfterTaxContribution: "Partner's after-tax into super",
+  partnerUnusedConcessionalCapCarriedForward: "Partner's unused cap carried forward",
+  partnerPartTimeIncome: "Partner's part-time income",
+  partnerPartTimeYears: "Partner's part-time years",
+  afterTaxContribution: 'After-tax into super',
+  unusedConcessionalCapCarriedForward: 'Unused cap carried forward',
+  healthInsuranceMonthly: 'Health insurance / month',
+  firstDeathAge: 'First death at age',
+  agedCareFromAge: 'Enters aged care at',
+  agedCareYears: 'Years in aged care',
   agedCareEnabled: 'Aged care stress test',
   drawdownStrategy: 'Drawdown',
   glidePath: 'Glide path',
@@ -99,7 +114,18 @@ const FIELD_LABELS: Partial<Record<keyof FormInputs, string>> = {
 
 const PERCENT_FIELDS = new Set<keyof FormInputs>([
   'wageGrowth',
+  'partnerWageGrowth',
   'feeRateSuper',
+  'feeRateInvestments',
+  'investmentIncomeYield',
+  'healthInflation',
+  'outOfPocketMultiplier',
+  'returnCash',
+  'returnHome',
+  'sellingCostRate',
+  'spendingStepDownOnFirstDeath',
+  'phaseSlowGoMultiplier',
+  'phaseNoGoMultiplier',
   'mortgageRate',
   'cpi',
   'returnInvestments',
@@ -130,7 +156,38 @@ const MONEY_FIELDS = new Set<keyof FormInputs>([
   'partTimeIncome',
   'partnerSalary',
   'partnerSuperBalance',
+  'partnerInsurancePremiumInSuper',
+  'partnerAfterTaxContribution',
+  'partnerUnusedConcessionalCapCarriedForward',
+  'partnerPartTimeIncome',
+  'afterTaxContribution',
+  'unusedConcessionalCapCarriedForward',
+  'healthInsuranceMonthly',
+  'agedCareAccommodation',
 ]);
+
+/**
+ * Fields that are a second view of another field rather than a difference of their own.
+ * Listing them twice would be noise: birth year moves with age, and the gross salary and
+ * the annual sacrifice are both worked out from figures that are already in the table.
+ */
+export const HIDDEN_FROM_DIFF = new Set<keyof FormInputs>([
+  'birthYear',
+  'partnerBirthYear',
+  'salary',
+  'partnerSalary',
+  'voluntarySuperContribution',
+  'partnerVoluntarySuperContribution',
+  'privateHealthInsurancePremium',
+  'annualSavings',
+  'startYear',
+]);
+
+/** `partnerPartTimeYears` -> `Partner part time years`, for anything without a label. */
+export function humanise(key: string): string {
+  const words = key.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 function show(key: keyof FormInputs, v: FormInputs[keyof FormInputs]): string {
   if (typeof v === 'boolean') return v ? 'yes' : 'no';
@@ -197,13 +254,23 @@ export default function CompareView({
   );
 
   // Only the fields that actually differ, so four columns stay readable.
+  /*
+   * Every input, not a hand-kept list of them.
+   *
+   * This used to walk FIELD_LABELS, which meant a field nobody had thought to label was
+   * invisible here - twenty-seven of them, including four whose non-partner twin was
+   * listed. Two plans differing only in the partner's part-time work were reported as
+   * identical while their outcomes differed, which is the worst thing a panel headed
+   * "What is different" can do. Now the labels only supply a nicer name.
+   */
   const differences = useMemo(
     () =>
-      (Object.keys(FIELD_LABELS) as Array<keyof FormInputs>)
+      (Object.keys(sides[0].form) as Array<keyof FormInputs>)
+        .filter((k) => !HIDDEN_FROM_DIFF.has(k))
         .filter((k) => sides.some((s2) => s2.form[k] !== sides[0].form[k]))
         .map((k) => ({
           key: k,
-          label: FIELD_LABELS[k]!,
+          label: FIELD_LABELS[k] ?? humanise(k),
           values: sides.map((s2) => show(k, s2.form[k])),
         })),
     [sides],

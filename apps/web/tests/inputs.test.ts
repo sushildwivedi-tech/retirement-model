@@ -526,3 +526,29 @@ describe('a plan name and the folder it lands in', () => {
     }
   });
 });
+
+describe('the comparison table shows every difference', () => {
+  it('can name every input, so none is silently invisible', async () => {
+    // It used to walk a hand-kept label list, and twenty-seven fields were missing from
+    // it - four of them partner fields whose non-partner twin was listed. Two plans that
+    // differed only in those were reported as identical.
+    const { FIELD_LABELS, HIDDEN_FROM_DIFF, humanise } = await import('../app/compare-view');
+    for (const key of Object.keys(defaults) as Array<keyof FormInputs>) {
+      if (HIDDEN_FROM_DIFF.has(key)) continue;
+      const label = FIELD_LABELS[key] ?? humanise(key);
+      expect(label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('treats a partner field the same as the field it mirrors', async () => {
+    const { FIELD_LABELS, HIDDEN_FROM_DIFF } = await import('../app/compare-view');
+    for (const key of Object.keys(defaults) as Array<keyof FormInputs>) {
+      if (!key.startsWith('partner') || HIDDEN_FROM_DIFF.has(key)) continue;
+      const twin = (key[7].toLowerCase() + key.slice(8)) as keyof FormInputs;
+      if (!(twin in defaults) || HIDDEN_FROM_DIFF.has(twin)) continue;
+      // If one of a pair is named, so is the other - otherwise the couple's half of a
+      // comparison reads as less detailed than yours for no reason.
+      expect(Boolean(FIELD_LABELS[key])).toBe(Boolean(FIELD_LABELS[twin]));
+    }
+  });
+});

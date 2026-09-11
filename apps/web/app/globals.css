@@ -161,20 +161,15 @@ dd,
     gap: 1.25rem;
   }
   /*
-   * On a phone the answer comes first and the form follows it. In source order the form
-   * is first, because on a wide screen it is the left column and a keyboard user should
-   * reach the inputs before the output they produce. Below the breakpoint there are no
-   * columns, so the order that matters is the reading one: answer, then the controls
-   * that change it.
+   * Below the breakpoint there are no columns, so the stack follows source order: the
+   * form, then the answer it produces.
+   *
+   * This used to flip - answer first, form below - on the reasoning that a reader wants
+   * the conclusion before the controls. In use that is wrong here: the figures on screen
+   * are an example household until you replace them with your own, so an answer read
+   * before the inputs are touched is an answer to someone else's question. Putting the
+   * form first also matches the keyboard order a wide screen already has.
    */
-  @media (max-width: 1023px) {
-    .sidebar {
-      order: 2;
-    }
-    .content {
-      order: 1;
-    }
-  }
   @media (min-width: 1024px) {
     .layout {
       grid-template-columns: 340px minmax(0, 1fr);
@@ -603,6 +598,43 @@ dd,
     font-weight: 500;
     color: var(--ink-soft);
   }
+  /*
+   * A finger is not a mouse pointer. At 29px these cleared the minimum for a cursor and
+   * missed it for a thumb - Apple asks 44px, Android 48dp. Keyed off the POINTER rather
+   * than the viewport, because the thing that decides how big a target must be is what is
+   * pointing at it: a touch laptop at 1400px needs the bigger target, and a narrow window
+   * on a desktop does not.
+   */
+  @media (pointer: coarse) {
+    .toggle-item,
+    .seg-item,
+    .btn-sm {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn {
+      min-height: 44px;
+    }
+    /* Every field, including the handful written as one-off Tailwind rather than .input. */
+    input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    select {
+      min-height: 44px;
+    }
+    input[type='checkbox'] {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    /*
+     * Padding rather than a min-height, because a summary is a list-item box: changing
+     * its display to stretch it takes the disclosure marker with it.
+     */
+    summary {
+      padding-top: 0.55rem;
+      padding-bottom: 0.55rem;
+    }
+  }
   .toggle-item-on {
     background: var(--surface);
     color: var(--ink);
@@ -742,6 +774,81 @@ dd,
     padding: 0.3rem 0.5rem;
   }
 
+  /* The number and its bar, as one block - so the flex row on a phone keeps them together. */
+  .lever-figure {
+    display: block;
+  }
+
+  /*
+   * The levers, on a phone.
+   *
+   * A five-column table in 343px does not fail loudly - it fails quietly. `table-layout:
+   * auto` gives the numeric columns what they ask for (their headers are `nowrap`) and
+   * hands the change column whatever is left, which was 88px: every row became a ribbon
+   * one word wide. The table scrolled, so nothing looked broken; it was simply unreadable.
+   *
+   * The year table on the detail page is a genuine grid and scrolls sideways happily.
+   * This one is a list of recommendations, so below the breakpoint it stops being a table
+   * and becomes what it always was - a stack of cards, each naming its own figures.
+   */
+  @media (max-width: 639px) {
+    /*
+     * `table.` rather than `.table-levers` on purpose: the element carries Tailwind's
+     * `table` display utility too, and utilities sit in a later layer than components -
+     * so a bare class here loses and the element stays `display: table`. An element+class
+     * selector outranks it.
+     */
+    table.table-levers,
+    table.table-levers tbody,
+    table.table-levers tr,
+    table.table-levers td {
+      display: block;
+      width: 100%;
+    }
+    table.table-levers thead {
+      display: none;
+    }
+    table.table-levers tr {
+      padding: 0.9rem 0;
+    }
+    table.table-levers td {
+      border-bottom: 0;
+      padding: 0.16rem 0;
+      text-align: left;
+    }
+    /* Each figure carries the column heading the stack just threw away. */
+    table.table-levers td[data-label] {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    table.table-levers td[data-label]::before {
+      content: attr(data-label);
+      flex: none;
+      font-family: var(--font-mono), ui-monospace, monospace;
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .lever-change {
+      padding-bottom: 0.45rem;
+    }
+    .lever-figure {
+      text-align: right;
+      min-width: 7rem;
+    }
+    .lever-apply {
+      padding-top: 0.6rem;
+    }
+    .lever-apply .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
   /* ---------- misc ---------- */
 
   .spinner {
@@ -787,5 +894,21 @@ dd,
   * {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/*
+ * Outside every layer, deliberately.
+ *
+ * Tailwind ships a `table` display utility whose selector is also `.table` - the name our
+ * component class happens to use - and cascade LAYER order beats specificity, so no rule
+ * inside `@layer components` can turn this element into a block, however specific. Only
+ * unlayered CSS outranks a layer. Without this the row cells stack but the table element
+ * itself stays a table box, and the stack works by accident rather than by instruction.
+ */
+@media (max-width: 639px) {
+  table.table-levers {
+    display: block;
+    width: 100%;
   }
 }

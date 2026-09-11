@@ -1203,7 +1203,7 @@ export default function Planner({
                 Best first. Apply takes the change into your inputs.
               </p>
               <div className="overflow-x-auto">
-                <table className="table">
+                <table className="table table-levers">
                   <thead className="text-xs uppercase text-ink-mute">
                     <tr>
                       <th className="text-left">Change</th>
@@ -1221,11 +1221,11 @@ export default function Planner({
                       const better = o.fixesIt || (o.deltaYears ?? 0) > 0;
                       return (
                         <tr key={l.label} className="border-t border-rule-soft align-top">
-                          <td className="px-2 py-2">
+                          <td className="lever-change px-2 py-2">
                             <div className="font-medium text-ink">{l.label}</div>
                             <div className="text-xs text-ink-mute">{l.detail}</div>
                           </td>
-                          <td className="px-2 py-2 text-right tabular-nums">
+                          <td data-label="Money lasts to" className="px-2 py-2 text-right tabular-nums">
                             {o.runsOutAge === null ? (
                               <span className="font-medium text-good">never runs out</span>
                             ) : (
@@ -1233,6 +1233,7 @@ export default function Planner({
                             )}
                           </td>
                           <td
+                            data-label="Difference"
                             className={`px-2 py-2 text-right font-medium tabular-nums ${
                               l.differenceOverride
                                 ? l.differenceOverride.includes('less')
@@ -1245,6 +1246,7 @@ export default function Planner({
                                     : 'text-ink-mute'
                             }`}
                           >
+                            <span className="lever-figure">
                             {differenceText(l)}
                             {/* The same figure as a length, so the ranking is visible
                                 without reading every row. Scaled against the best row,
@@ -1262,11 +1264,15 @@ export default function Planner({
                                 />
                               </span>
                             )}
+                            </span>
                           </td>
-                          <td className="px-2 py-2 text-right tabular-nums text-ink-mute">
+                          <td
+                            data-label={`Left at ${form.planToAge}`}
+                            className="px-2 py-2 text-right tabular-nums text-ink-mute"
+                          >
                             {money(o.liquidEstateReal)}
                           </td>
-                          <td className="px-2 py-2 text-right">
+                          <td className="lever-apply px-2 py-2 text-right">
                             <button
                               onClick={() => {
                                 // Through the field rules, key by key: applying "salary

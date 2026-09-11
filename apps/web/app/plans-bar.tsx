@@ -28,12 +28,19 @@ export function PlansBar({
   form,
   setForm,
   onLoad,
+  onPlanName,
   ruleset,
 }: {
   form: FormInputs;
   setForm: (f: FormInputs) => void;
   /** Called after a plan or a revision replaces the form, so results can be cleared. */
   onLoad: () => void;
+  /**
+   * Which plan is open, for anything outside the bar that has to name it - the downloaded
+   * summary puts it on the masthead. Null when no plan is open, or when there is no local
+   * process at all and the bar is not rendered.
+   */
+  onPlanName?: (name: string | null) => void;
   ruleset: Ruleset;
 }) {
   const [available, setAvailable] = useState<{ dataDir: string } | null>(null);
@@ -57,6 +64,10 @@ export function PlansBar({
    */
   const [clean, setClean] = useState<string | null>(null);
   const dirty = current !== null && clean !== null && clean !== JSON.stringify(form);
+
+  useEffect(() => {
+    onPlanName?.(current?.name ?? null);
+  }, [current, onPlanName]);
 
   useEffect(() => {
     probe().then(setAvailable);

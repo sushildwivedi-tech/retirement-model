@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   compareScenarios,
   earliestRetirementAgeDeterministic,
+  milestones,
   personalIncomeTax,
   project,
   toCsv,
@@ -14,6 +15,7 @@ import {
   type HealthCostCurve,
   type LifeTables,
   type Ruleset,
+  type ScenarioOutcome,
   type YearRow,
 } from '@retirement/engine';
 import {
@@ -34,6 +36,7 @@ import { InputsPanel } from './inputs-panel';
 import { PlansBar } from './plans-bar';
 import { useSolver, useBackgroundAge } from './use-solver';
 import { money, pct } from './format';
+import { downloadSummary, type SummaryLever } from './summary-doc';
 import BalanceChart from './balance-chart';
 import HealthChart from './health-chart';
 import FanChart from './fan-chart';
@@ -61,6 +64,8 @@ export default function Planner({
   // picked up in an effect rather than during render.
   const [form, setForm] = useState<FormInputs>(defaults);
   const [usingSaved, setUsingSaved] = useState(false);
+  // The open plan's name, reported up from the bar, so the downloaded summary can carry it.
+  const [planName, setPlanName] = useState<string | null>(null);
   const hydrated = useRef(false);
 
   useEffect(() => {
@@ -567,6 +572,57 @@ export default function Planner({
     ...levers.map((l) => Math.abs(l.outcome.deltaYears ?? 0)),
   );
 
+  /**
+   * The plan as a one-page document: the age, then every turning point between now and the
+   * end of it, in the year it lands. Built from figures already on screen rather than by
+   * re-running anything, so the paper and the page always agree.
+   */
+  const downloadTheSummary = () =>
+    downloadSummary({
+      form,
+      scenario,
+      result: r,
+      ruleset,
+      milestones: milestones(r, scenario, ruleset),
+      headline: {
+        age: headlineAge,
+        partnerAge:
+          headlineAge !== null && canRetireAt.people.length > 1 ? headlineAge + partnerGap : null,
+        basis: confidenceAge?.value != null ? 'confidence' : 'central',
+        confidence:
+          confidenceAge?.value != null
+            ? Math.round((confidenceAge.achievedProbability ?? conf) * 100)
+            : undefined,
+        runs: confidenceAge?.verifyRuns,
+        centralAge: canRetireAt.age,
+        plannedAge: canRetireAt.plannedAge,
+        plannedWorks: canRetireAt.plannedAgeWorks,
+        yearsFromPlan: canRetireAt.yearsFromPlan,
+      },
+      // Only the changes that actually help, best first. A summary listing things that
+      // make the plan worse would be a curiosity, not a next step.
+      levers: levers
+        .filter((l) => l.outcome.fixesIt || (l.outcome.deltaYears ?? 0) > 0 || l.differenceOverride)
+        .slice(0, 6)
+        .map(
+          (l): SummaryLever => ({
+            label: l.label,
+            detail: l.detail,
+            difference: differenceText(l),
+            runsOutAge: l.outcome.runsOutAge,
+          }),
+        ),
+      monteCarlo: mc
+        ? {
+            successProbability: mc.successProbability,
+            runs: mc.runs,
+            medianFailureAge: mc.medianFailureAge,
+          }
+        : null,
+      planName,
+      generatedAt: new Date(),
+    });
+
   const download = () => {
     const blob = new Blob([toCsv(r, real)], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -599,6 +655,7 @@ export default function Planner({
               form={form}
               setForm={(next) => setForm(next)}
               onLoad={clearResults}
+              onPlanName={setPlanName}
               ruleset={ruleset}
             />
             <span className="stamp hidden lg:inline">{r.ruleset}</span>
@@ -798,6 +855,15 @@ export default function Planner({
                   </>
                 )}
               </p>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button onClick={downloadTheSummary} className="btn">
+                  Download the summary
+                </button>
+                <span className="text-xs text-[#8ea0b6]">
+                  One page: this age, and every turning point between now and{' '}
+                  {form.planToAge} — the year each one lands, and what to do about it.
+                </span>
+              </div>
               <p className="help mt-4 mb-0">
                 {confidenceAge?.value != null
                   ? `The age that works most of the time, from ${confidenceAge.verifyRuns.toLocaleString()} simulated futures. The central-path age assumes returns land on the average every single year, which they will not — that is why it is the lower of the two.`
@@ -926,6 +992,9 @@ export default function Planner({
                   )}
                   <button onClick={download} className="btn btn-sm">
                     Export CSV
+                  </button>
+                  <button onClick={downloadTheSummary} className="btn btn-sm">
+                    Download summary
                   </button>
                 </div>
               </div>
@@ -1176,17 +1245,7 @@ export default function Planner({
                                     : 'text-ink-mute'
                             }`}
                           >
-                            {l.differenceOverride
-                              ? l.differenceOverride
-                              : o.fixesIt
-                              ? 'fixes it'
-                              : o.deltaYears === null
-                                ? '—'
-                                : o.deltaYears > 0
-                                  ? `+${o.deltaYears} yrs`
-                                  : o.deltaYears === 0
-                                    ? 'no change'
-                                    : `${o.deltaYears} yrs`}
+                            {differenceText(l)}
                             {/* The same figure as a length, so the ranking is visible
                                 without reading every row. Scaled against the best row,
                                 which is the only comparison that matters here. */}
@@ -1337,6 +1396,22 @@ export default function Planner({
       </main>
     </>
   );
+}
+
+/**
+ * How a lever's effect reads in one cell.
+ *
+ * Shared by the table on screen and the downloaded summary, so the document cannot end up
+ * describing the same row differently from the page it was produced from.
+ */
+function differenceText(l: { differenceOverride?: string; outcome: ScenarioOutcome }): string {
+  const o = l.outcome;
+  if (l.differenceOverride) return l.differenceOverride;
+  if (o.fixesIt) return 'fixes it';
+  if (o.deltaYears === null) return '\u2014';
+  if (o.deltaYears > 0) return `+${o.deltaYears} yrs`;
+  if (o.deltaYears === 0) return 'no change';
+  return `${o.deltaYears} yrs`;
 }
 
 function SolveCard({

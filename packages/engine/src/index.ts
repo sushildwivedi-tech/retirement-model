@@ -2,6 +2,8 @@ export * from './types';
 export { project, type Datasets } from './engine';
 export { preservationAge, unsourcedValues, assertUsable } from './rules';
 export { toReal, toRealRow, toCsv } from './report';
+export { milestones } from './milestones';
+export type { Milestone, MilestoneKind } from './milestones';
 export { indexRuleset, INDEX_ALL } from './indexation';
 export type { IndexationChoice } from './indexation';
 export {

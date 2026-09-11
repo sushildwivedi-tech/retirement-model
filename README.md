@@ -125,6 +125,10 @@ npm run app
 Builds the site and starts a small local process on `http://127.0.0.1:4173`, which serves
 the app **and gives it somewhere to keep plans**. Stop it with Ctrl+C.
 
+Run it twice and it says so rather than throwing a stack trace — it asks whatever holds
+the port whether it is this app, and tells you either to open the one already running or
+how to find what else is there. `PORT=4174 npm run app` moves it.
+
 With that running, the bar gains a plan name, **Save**, **Plans** and **History**. A plan
 is a document you come back to: name it, save it, and every save keeps a dated copy. Open
 one months later, change it, save again — and the version you had in January is still

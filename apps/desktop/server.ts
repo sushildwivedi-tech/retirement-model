@@ -148,6 +148,32 @@ const server = createServer(async (req, res) => {
   }
 });
 
+/**
+ * The one failure an ordinary run actually hits: the app is already open in another
+ * terminal. A stack trace is a poor way to say so, and the useful answer differs
+ * depending on whether the thing holding the port is this app or something else - so ask
+ * it, and say which.
+ */
+server.on('error', async (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EADDRINUSE') {
+    console.error(`\n  Could not start: ${err.message}\n`);
+    process.exit(1);
+  }
+  let ours = false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+    ours = res.ok && ((await res.json()) as { ok?: boolean }).ok === true;
+  } catch {
+    /* whatever is there, it is not answering as us */
+  }
+  console.error(
+    ours
+      ? `\n  Already running.\n\n  Open        http://127.0.0.1:${port}\n  Stop it     kill $(lsof -nP -iTCP:${port} -sTCP:LISTEN -t)\n`
+      : `\n  Port ${port} is in use by something else.\n\n  See what    lsof -nP -iTCP:${port} -sTCP:LISTEN\n  Or move     PORT=${port + 1} npm run app\n`,
+  );
+  process.exit(1);
+});
+
 server.listen(port, '127.0.0.1', () => {
   console.log(`
   Retirement model

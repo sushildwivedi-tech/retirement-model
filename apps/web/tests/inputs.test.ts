@@ -511,7 +511,9 @@ describe('a plan name and the folder it lands in', () => {
   it('agree with the server, which is the only reason the client computes it at all', async () => {
     // Two copies of one rule is a bug waiting to happen, so the two are pinned together.
     const client = await import('../app/plans');
-    const server = await import('../../desktop/plans.ts');
+    // No extension: this project resolves like a bundler, and next build type-checks
+    // test files, where an explicit .ts in an import path is an error.
+    const server = await import('../../desktop/plans');
     for (const name of [
       'Our plan',
       'Plan B — 2026!',

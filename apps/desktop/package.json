@@ -1,0 +1,11 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The laptop app: serves the built site and keeps saved plans as files.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.ts",
+    "test": "vitest run"
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Ruleset } from '@retirement/engine';
 import { mergeInputs, type FormInputs } from './inputs';
 import {
@@ -47,10 +47,16 @@ export function PlansBar({
   // the two you are looking at is the whole job of this bar.
   const [viewing, setViewing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // What the form looked like when it was last saved or loaded, so "unsaved" is a fact
-  // rather than a flag someone has to remember to set.
-  const clean = useRef<string | null>(null);
-  const dirty = current !== null && clean.current !== null && clean.current !== JSON.stringify(form);
+  /*
+   * What the form looked like when it was last saved or loaded, so "unsaved" is a fact
+   * rather than a flag someone has to remember to set.
+   *
+   * State, not a ref. A ref read during render is invisible to React - nothing re-renders
+   * when it changes, so the dot would only appear when something else happened to force a
+   * render, and would be wrong until then.
+   */
+  const [clean, setClean] = useState<string | null>(null);
+  const dirty = current !== null && clean !== null && clean !== JSON.stringify(form);
 
   useEffect(() => {
     probe().then(setAvailable);
@@ -79,7 +85,7 @@ export function PlansBar({
     // than breaking: unknown keys are dropped and missing ones take today's defaults.
     const merged = mergeInputs(record.inputs as Partial<FormInputs>, ruleset);
     setForm(merged);
-    clean.current = JSON.stringify(merged);
+    setClean(JSON.stringify(merged));
     setCurrent({ slug, name: record.name });
     setViewing(fromRevision ? (record.savedAt ?? null) : null);
     setOpen(null);
@@ -92,7 +98,7 @@ export function PlansBar({
     setError(null);
     try {
       await savePlan(slug, name, form);
-      clean.current = JSON.stringify(form);
+      setClean(JSON.stringify(form));
       setCurrent({ slug, name });
       setViewing(null);
       await refresh();

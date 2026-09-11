@@ -45,7 +45,8 @@ and clears the loan five years sooner.
 The form had grown to fifty-one inputs across sixteen sections, all of it on screen at
 once. Six sections are now always visible — the partner question, your ages, the payslip
 figures, what you have, whether you own your home, and what you plan to spend — which is
-**fourteen fields**. Everything else sits behind one *Refine the model* disclosure,
+**fourteen fields**. Answering yes to a partner adds a seventh, their super, because a
+question that adds a person has to bring that person's details with it. Everything else sits behind one *Refine the model* disclosure,
 remembered for the visit like the form itself.
 
 Anything switched on inside a closed section is named on the disclosure row

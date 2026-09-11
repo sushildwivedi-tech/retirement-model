@@ -102,29 +102,18 @@ const GROUPS: Group[] = [
         kind: 'money',
         derived: (f) => (f.partnerSalary > 0 ? `${money(f.partnerSalary)} gross a year` : ''),
       },
-      { key: 'partnerWageGrowth', label: "Partner's wage growth", kind: 'percent', role: 'assumption' },
     ],
   },
   {
-    title: 'Partner — super',
+    // Basic, like your own super: answering "yes" to a partner has to bring their
+    // details with it. Hiding half of them behind a disclosure meant a couple could
+    // enter the partner's pay and never be shown where their balance goes.
+    title: "Partner's super",
+    tier: 'basic',
     requires: 'hasPartner',
+    help: 'The same three payslip figures, for them.',
     fields: [
       { key: 'partnerSuperBalance', label: 'Super balance', kind: 'money' },
-      {
-        key: 'partnerAfterTaxContribution',
-        label: 'After-tax into super / yr',
-        kind: 'money',
-      },
-      {
-        key: 'partnerUnusedConcessionalCapCarriedForward',
-        label: 'Unused cap carried forward',
-        kind: 'money',
-      },
-      {
-        key: 'partnerInsurancePremiumInSuper',
-        label: 'Insurance from super / yr',
-        kind: 'money',
-      },
       {
         key: 'partnerEmployerSuperMonthly',
         label: 'From their employer / month',
@@ -142,6 +131,34 @@ const GROUPS: Group[] = [
             f.partnerEmployerSuperMonthly,
             r,
           ),
+      },
+    ],
+  },
+  {
+    title: "Partner's super — the extras",
+    requires: 'hasPartner',
+    help: 'Money going in beyond their payslip, and what their fund takes out.',
+    fields: [
+      {
+        key: 'partnerAfterTaxContribution',
+        label: 'After-tax into super / yr',
+        kind: 'money',
+      },
+      {
+        key: 'partnerUnusedConcessionalCapCarriedForward',
+        label: 'Unused cap carried forward',
+        kind: 'money',
+      },
+      {
+        key: 'partnerInsurancePremiumInSuper',
+        label: 'Insurance from super / yr',
+        kind: 'money',
+      },
+      {
+        key: 'partnerWageGrowth',
+        label: "Partner's wage growth",
+        kind: 'percent',
+        role: 'assumption',
       },
     ],
   },
